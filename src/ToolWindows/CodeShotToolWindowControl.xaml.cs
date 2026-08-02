@@ -90,7 +90,7 @@ namespace CodeShot.ToolWindows
 
         private void OnThemeChanged(ThemeChangedEventArgs e)
         {
-            _ = RunSafeAsync(
+            RunSafe(
                 async () =>
                 {
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -127,7 +127,7 @@ namespace CodeShot.ToolWindows
 
             ApplyTheme();
 
-            _ = RunSafeAsync(
+            RunSafe(
                 async () =>
                 {
                     General options = await General.GetLiveInstanceAsync();
@@ -140,8 +140,8 @@ namespace CodeShot.ToolWindows
 
         internal void Refresh()
         {
-            _ = RunSafeAsync(
-                async () => await RefreshFromSelectionAsync(),
+            RunSafe(
+                RefreshFromSelectionAsync,
                 "Could not refresh from the current selection.");
         }
 
@@ -654,8 +654,8 @@ namespace CodeShot.ToolWindows
 
         private void OnTextSelectionChanged(object sender, EventArgs e)
         {
-            _ = RunSafeAsync(
-                async () => await RefreshFromSelectionAsync(),
+            RunSafe(
+                RefreshFromSelectionAsync,
                 "Could not refresh from the current selection.");
         }
 
@@ -674,7 +674,7 @@ namespace CodeShot.ToolWindows
 
         private void OnOptionsSaved(General options)
         {
-            _ = RunSafeAsync(
+            RunSafe(
                 async () =>
                 {
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -710,7 +710,7 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            _ = RunSafeAsync(
+            RunSafe(
                 async () =>
                 {
                     General options = await General.GetLiveInstanceAsync();
@@ -738,6 +738,12 @@ namespace CodeShot.ToolWindows
             LineNumbersText.FontSize = _fontSize;
         }
 
+        // Faults are reported to the activity log instead of being left on an unobserved task.
+        private void RunSafe(Func<Task> action, string userMessage)
+        {
+            RunSafeAsync(action, userMessage).FileAndForget($"{Vsix.Name}/{nameof(RunSafe)}");
+        }
+
         private async Task RunSafeAsync(Func<Task> action, string userMessage)
         {
             try
@@ -747,6 +753,9 @@ namespace CodeShot.ToolWindows
             catch (Exception ex)
             {
                 await ex.LogAsync();
+
+                // The failing action can resume on a background thread, and StatusText is UI state.
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 StatusText.Text = userMessage;
             }
         }
