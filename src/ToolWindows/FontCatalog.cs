@@ -18,6 +18,7 @@ namespace CodeShot.ToolWindows
         private static readonly object SyncRoot = new object();
 
         private static IReadOnlyList<string>? _families;
+        private static Dictionary<string, string>? _familyLookup;
         private static Task<List<string>>? _monospaceFamiliesTask;
 
         public static IReadOnlyList<double> Sizes { get; } = new double[] { 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32 };
@@ -55,6 +56,7 @@ namespace CodeShot.ToolWindows
                     families.Add(FallbackFamily);
                 }
 
+                _familyLookup = families.ToDictionary(name => name, StringComparer.OrdinalIgnoreCase);
                 _families = families;
                 return _families;
             }
@@ -104,14 +106,24 @@ namespace CodeShot.ToolWindows
         }
 
         public static string ResolveFamily(string? family)
-            => Families.FirstOrDefault(candidate => string.Equals(candidate, family, StringComparison.OrdinalIgnoreCase))
-                ?? Families.FirstOrDefault(candidate => string.Equals(candidate, FallbackFamily, StringComparison.OrdinalIgnoreCase))
-                ?? Families[0];
+        {
+            var families = Families;
+            var lookup = _familyLookup!;
+
+            if (family is not null && lookup.TryGetValue(family, out var match))
+            {
+                return match;
+            }
+
+            return lookup.TryGetValue(FallbackFamily, out var fallback) ? fallback : families[0];
+        }
 
         public static bool TryParseSize(string? text, out double size)
         {
-            if (double.TryParse(text?.Trim(), NumberStyles.Float, CultureInfo.CurrentCulture, out size)
-                || double.TryParse(text?.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out size))
+            var trimmed = text?.Trim();
+
+            if (double.TryParse(trimmed, NumberStyles.Float, CultureInfo.CurrentCulture, out size)
+                || double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out size))
             {
                 size = ClampSize(size);
                 return true;
@@ -143,8 +155,9 @@ namespace CodeShot.ToolWindows
 
                 return narrow > 0 && Math.Abs(narrow - wide) < 0.0001;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _ = ex.LogAsync();
                 return false;
             }
         }

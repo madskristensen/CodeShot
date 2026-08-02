@@ -23,7 +23,7 @@ namespace CodeShot
     internal sealed partial class PackageIds
     {
         public const int MyMenuGroup = 0x0001;
-        public const int MyCommand = 0x0100;
+        public const int ShowCodeShotWindowCommand = 0x0100;
         public const int CodeShotToolbar = 0x1000;
         public const int ToolbarActionsGroup = 0x1010;
         public const int ToolbarFontGroup = 0x1020;

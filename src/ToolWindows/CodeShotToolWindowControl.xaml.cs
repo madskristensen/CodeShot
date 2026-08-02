@@ -251,14 +251,14 @@ namespace CodeShot.ToolWindows
             }
         }
 
-        private async System.Threading.Tasks.Task RefreshFromSelectionAsync()
+        private async Task RefreshFromSelectionAsync()
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             if (_isRefreshingSelection)
             {
-                // A pass is already running and it awaits, so queue a rerun instead of
-                // dropping this request and leaving the preview stale.
+                // Another call is between the thread switch and the rebuild, so queue a rerun
+                // instead of dropping this request and leaving the preview stale.
                 _isRefreshPending = true;
                 return;
             }

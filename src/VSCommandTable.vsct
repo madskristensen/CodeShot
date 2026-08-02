@@ -56,7 +56,7 @@
     <!--This section defines the elements the user can interact with, like a menu command or a button
         or combo box in a toolbar. -->
     <Buttons>
-      <Button guid="CodeShot" id="MyCommand" priority="0x0100" type="Button">
+      <Button guid="CodeShot" id="ShowCodeShotWindowCommand" priority="0x0100" type="Button">
         <Parent guid="CodeShot" id="MyMenuGroup" />
         <Icon guid="ImageCatalogGuid" id="Camera" />
         <CommandFlag>IconIsMoniker</CommandFlag>
@@ -160,13 +160,13 @@
   </Commands>
 
   <KeyBindings>
-    <KeyBinding guid="CodeShot" id="MyCommand" editor="guidVSStd97" key1="P" mod1="Control Shift" />
+    <KeyBinding guid="CodeShot" id="ShowCodeShotWindowCommand" editor="guidVSStd97" key1="P" mod1="Control Shift" />
   </KeyBindings>
 
   <Symbols>
     <GuidSymbol name="CodeShot" value="{a7a7b4b8-f629-4a80-9156-c3dcaae4256a}">
       <IDSymbol name="MyMenuGroup" value="0x0001" />
-      <IDSymbol name="MyCommand" value="0x0100" />
+      <IDSymbol name="ShowCodeShotWindowCommand" value="0x0100" />
 
       <IDSymbol name="CodeShotToolbar" value="0x1000" />
       <IDSymbol name="ToolbarActionsGroup" value="0x1010" />

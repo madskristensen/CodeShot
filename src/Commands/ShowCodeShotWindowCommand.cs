@@ -1,7 +1,7 @@
 ﻿namespace CodeShot
 {
-    [Command(PackageIds.MyCommand)]
-    internal sealed class MyCommand : BaseCommand<MyCommand>
+    [Command(PackageIds.ShowCodeShotWindowCommand)]
+    internal sealed class ShowCodeShotWindowCommand : BaseCommand<ShowCodeShotWindowCommand>
     {
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
