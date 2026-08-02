@@ -1,5 +1,3 @@
-using Microsoft.VisualStudio.ComponentModelHost;
-using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
@@ -294,10 +292,7 @@ namespace CodeShot.ToolWindows
         // which DTE.ActiveDocument does not guarantee and which can throw when no document is active.
         private static string GetDocumentName(IWpfTextView textView)
         {
-            var componentModel = Package.GetGlobalService(typeof(SComponentModel)) as IComponentModel;
-            var documentFactory = componentModel?.GetService<ITextDocumentFactoryService>();
-
-            return documentFactory?.TryGetTextDocument(textView.TextDataModel.DocumentBuffer, out var document) == true
+            return EditorServices.TextDocuments?.TryGetTextDocument(textView.TextDataModel.DocumentBuffer, out var document) == true
                 ? Path.GetFileName(document.FilePath)
                 : string.Empty;
         }
@@ -454,9 +449,7 @@ namespace CodeShot.ToolWindows
 
         private static (SolidColorBrush foreground, SolidColorBrush background) GetEditorTextBrushes(Color fallbackForeground, Color fallbackBackground)
         {
-            var componentModel = Package.GetGlobalService(typeof(SComponentModel)) as IComponentModel;
-            var formatMapService = componentModel?.GetService<IClassificationFormatMapService>();
-            var formatMap = formatMapService?.GetClassificationFormatMap("text");
+            var formatMap = EditorServices.FormatMaps?.GetClassificationFormatMap("text");
             var defaultProperties = formatMap?.DefaultTextProperties;
 
             var foreground = defaultProperties?.ForegroundBrushEmpty == false ? defaultProperties.ForegroundBrush as SolidColorBrush : null;
@@ -480,9 +473,7 @@ namespace CodeShot.ToolWindows
                 return null;
             }
 
-            var componentModel = Package.GetGlobalService(typeof(SComponentModel)) as IComponentModel;
-            var adaptersFactory = componentModel?.GetService<IVsEditorAdaptersFactoryService>();
-            return adaptersFactory?.GetWpfTextView(activeVsTextView);
+            return EditorServices.EditorAdapters?.GetWpfTextView(activeVsTextView);
         }
 
         private static IReadOnlyList<SnapshotSpan> GetNormalizedSelectionSpans(IWpfTextView textView)
@@ -555,12 +546,8 @@ namespace CodeShot.ToolWindows
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            var componentModel = Package.GetGlobalService(typeof(SComponentModel)) as IComponentModel;
-            var classifierService = componentModel?.GetService<IViewClassifierAggregatorService>();
-            var formatMapService = componentModel?.GetService<IClassificationFormatMapService>();
-
-            var classifier = classifierService?.GetClassifier(textView);
-            var formatMap = formatMapService?.GetClassificationFormatMap(textView);
+            var classifier = EditorServices.Classifiers?.GetClassifier(textView);
+            var formatMap = EditorServices.FormatMaps?.GetClassificationFormatMap(textView);
 
             if (classifier is null || formatMap is null)
             {

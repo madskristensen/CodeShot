@@ -1,5 +1,3 @@
-using Microsoft.VisualStudio.ComponentModelHost;
-using Microsoft.VisualStudio.Text.Classification;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -93,9 +91,7 @@ namespace CodeShot.ToolWindows
 
         public static (string family, double size) GetEditorFont()
         {
-            var componentModel = Package.GetGlobalService(typeof(SComponentModel)) as IComponentModel;
-            var formatMapService = componentModel?.GetService<IClassificationFormatMapService>();
-            var defaultProperties = formatMapService?.GetClassificationFormatMap("text")?.DefaultTextProperties;
+            var defaultProperties = EditorServices.FormatMaps?.GetClassificationFormatMap("text")?.DefaultTextProperties;
 
             var family = defaultProperties?.TypefaceEmpty == false
                 ? defaultProperties.Typeface.FontFamily.Source
