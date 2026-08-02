@@ -126,6 +126,7 @@ namespace CodeShot.ToolWindows
 
             VSColorTheme.ThemeChanged -= OnThemeChanged;
             General.Saved -= OnOptionsSaved;
+            VS.Events.WindowEvents.ActiveFrameChanged -= OnActiveFrameChanged;
             _refreshTimer.Stop();
             DetachFromSelectionChanges();
         }
@@ -140,6 +141,8 @@ namespace CodeShot.ToolWindows
             VSColorTheme.ThemeChanged += OnThemeChanged;
             General.Saved -= OnOptionsSaved;
             General.Saved += OnOptionsSaved;
+            VS.Events.WindowEvents.ActiveFrameChanged -= OnActiveFrameChanged;
+            VS.Events.WindowEvents.ActiveFrameChanged += OnActiveFrameChanged;
 
             ApplyTheme();
 
@@ -700,6 +703,18 @@ namespace CodeShot.ToolWindows
         }
 
         private void OnTextSelectionChanged(object sender, EventArgs e)
+        {
+            ScheduleRefresh();
+        }
+
+        // Selecting code in another document never raises SelectionChanged on the tracked view,
+        // so the preview follows the active window as well.
+        private void OnActiveFrameChanged(ActiveFrameChangeEventArgs e)
+        {
+            ScheduleRefresh();
+        }
+
+        private void ScheduleRefresh()
         {
             _refreshTimer.Stop();
             _refreshTimer.Start();
