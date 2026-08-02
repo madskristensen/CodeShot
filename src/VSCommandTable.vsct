@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <Extern href="stdidcmd.h"/>
+  <Extern href="vsshlids.h"/>
+  <Include href="KnownImageIds.vsct"/>
+  <Include href="VSGlobals.vsct"/>
+
+  <Commands package="CodeShot">
+    <Groups>
+      <Group guid="CodeShot" id="MyMenuGroup" priority="0x0600">
+        <Parent guid="VSMainMenu" id="Tools"/>
+      </Group>
+    </Groups>
+
+    <!--This section defines the elements the user can interact with, like a menu command or a button
+        or combo box in a toolbar. -->
+    <Buttons>
+      <Button guid="CodeShot" id="MyCommand" priority="0x0100" type="Button">
+        <Parent guid="CodeShot" id="MyMenuGroup" />
+        <Icon guid="ImageCatalogGuid" id="Camera" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>CodeShot</ButtonText>
+          <LocCanonicalName>.CodeShot.Open</LocCanonicalName>
+        </Strings>
+      </Button>
+    </Buttons>
+
+  </Commands>
+
+  <CommandPlacements>
+    <CommandPlacement guid="CodeShot" id="MyMenuGroup" priority="0x0500">
+      <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
+    </CommandPlacement>
+  </CommandPlacements>
+
+  <Symbols>
+    <GuidSymbol name="CodeShot" value="{a7a7b4b8-f629-4a80-9156-c3dcaae4256a}">
+      <IDSymbol name="MyMenuGroup" value="0x0001" />
+      <IDSymbol name="MyCommand" value="0x0100" />
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>

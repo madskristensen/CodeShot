@@ -1,0 +1,12 @@
+﻿{
+  "$schema": "http://json.schemastore.org/vsix-publish",
+  "categories": [ "coding", "other" ],
+  "private": false,
+  "identity": {
+    "internalName": "CodeShot",
+    "tags": [ "screenshot", "image", "png", "code", "snippet", "capture", "share", "tool window" ]
+  },
+  "overview": "readme.md",
+  "publisher": "MadsKristensen",
+  "repo": "https://github.com/madskristensen/CodeShot"
+}
