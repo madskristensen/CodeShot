@@ -156,7 +156,11 @@ namespace CodeShot.ToolWindows
                     return;
                 }
 
-                Clipboard.SetImage(snapshot);
+                var data = new DataObject();
+                data.SetImage(snapshot);
+
+                // Copying the data keeps the image on the clipboard after Visual Studio exits.
+                Clipboard.SetDataObject(data, true);
                 StatusText.Text = "Copied screenshot to clipboard.";
             }
             catch (Exception ex)
@@ -339,6 +343,7 @@ namespace CodeShot.ToolWindows
             }
 
             renderTarget.Render(drawingVisual);
+            renderTarget.Freeze();
             return renderTarget;
         }
 
