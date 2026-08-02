@@ -21,32 +21,41 @@ image in seconds.**
 
 ## Capture code without extra tools
 
-Select code in the editor, open **CodeShot**, and click **Refresh**. The preview
-updates from your current selection and keeps syntax coloring when available.
-The common leading indentation is removed automatically, so a deeply nested
-selection is captured without the extra whitespace on the left.
+Select code in the editor and open **CodeShot**. The preview follows your
+selection and keeps syntax coloring when available, and the toolbar **Refresh**
+button pulls it in again at any time. The common leading indentation is removed
+automatically, so a deeply nested selection is captured without the extra
+whitespace on the left.
 
 ![Tool window](art/tool-window.png)
 
 ## Customize the screenshot before exporting
 
-You can quickly control the final image:
+Everything lives on the tool window toolbar:
 
-- Show or hide line numbers.
-- Show or hide the title bar.
-- Keep Visual Studio theme-aware colors in the preview.
+- Pick any monospaced font installed on your machine from the font drop-down.
+- Pick a font size, or type your own.
+- Under the **Options** gear: show or hide line numbers, and show or hide the
+  title bar. Line numbers always start at 1, so the snippet reads as a
+  standalone sample instead of exposing where it came from in the file.
+- Colors follow the Visual Studio editor theme automatically.
+
+All of these settings are remembered between sessions and can also be edited in
+**Tools > Options > CodeShot > General**, which is what the gear button opens.
+Leave the font family empty or the font size at 0 to follow the Text Editor
+font.
 
 Then export with one click:
 
-- **Copy PNG** to send directly to clipboard.
-- **Save PNG** to write a `.png` file to disk.
+- **Copy Image** to send the PNG straight to the clipboard.
+- **Save Image As** to write a `.png` file to disk.
 
 ## Fits naturally in Visual Studio
 
 CodeShot integrates as a standard extension command:
 
 - **Tools > CodeShot**
-- Editor context menu in code windows
+- **Ctrl+Shift+P** from anywhere in the IDE
 
 The tool window blends with the active Visual Studio theme and is designed for a
 fast capture workflow while you code.
@@ -55,8 +64,8 @@ fast capture workflow while you code.
 
 1. Install the extension from the [Visual Studio Marketplace][marketplace].
 2. Open a code file and select the lines you want to capture.
-3. Open **CodeShot** from the **Tools** menu or editor context menu.
-4. Click **Refresh**, then **Copy PNG** or **Save PNG**.
+3. Open **CodeShot** from the **Tools** menu or press **Ctrl+Shift+P**.
+4. Click **Copy Image** or **Save Image As** on the toolbar.
 
 ## Credits
 

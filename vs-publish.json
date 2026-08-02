@@ -12,6 +12,12 @@
       "targetPath": "art/tool-window.png"
     }
   ],
+  "assetFiles": [
+    {
+      "pathOnDisk": "art/tool-window.png",
+      "targetPath": "art/tool-window.png"
+    }
+  ],
   "overview": "readme.md",
   "publisher": "MadsKristensen",
   "repo": "https://github.com/madskristensen/CodeShot"

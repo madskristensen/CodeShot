@@ -24,5 +24,22 @@ namespace CodeShot
     {
         public const int MyMenuGroup = 0x0001;
         public const int MyCommand = 0x0100;
+        public const int CodeShotToolbar = 0x1000;
+        public const int ToolbarActionsGroup = 0x1010;
+        public const int ToolbarFontGroup = 0x1020;
+        public const int ToolbarOptionsGroup = 0x1030;
+        public const int OptionsMenu = 0x1040;
+        public const int OptionsMenuGroup = 0x1050;
+        public const int OptionsMenuSettingsGroup = 0x1060;
+        public const int RefreshPreviewCommand = 0x0110;
+        public const int CopyImageCommand = 0x0120;
+        public const int SaveImageCommand = 0x0130;
+        public const int ShowLineNumbersCommand = 0x0140;
+        public const int ShowTitleBarCommand = 0x0150;
+        public const int OpenOptionsCommand = 0x0180;
+        public const int FontFamilyCombo = 0x0160;
+        public const int FontFamilyComboList = 0x0161;
+        public const int FontSizeCombo = 0x0170;
+        public const int FontSizeComboList = 0x0171;
     }
 }

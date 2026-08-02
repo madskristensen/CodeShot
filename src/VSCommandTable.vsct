@@ -7,9 +7,49 @@
   <Include href="VSGlobals.vsct"/>
 
   <Commands package="CodeShot">
+    <Menus>
+      <Menu guid="CodeShot" id="CodeShotToolbar" type="ToolWindowToolbar">
+        <CommandFlag>DefaultDocked</CommandFlag>
+        <Strings>
+          <ButtonText>CodeShot Toolbar</ButtonText>
+        </Strings>
+      </Menu>
+
+      <Menu guid="CodeShot" id="OptionsMenu" priority="0x0100" type="MenuController">
+        <Parent guid="CodeShot" id="ToolbarOptionsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Settings" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>NotInTBList</CommandFlag>
+        <Strings>
+          <ButtonText>Options</ButtonText>
+          <ToolTipText>Screenshot options</ToolTipText>
+        </Strings>
+      </Menu>
+    </Menus>
+
     <Groups>
       <Group guid="CodeShot" id="MyMenuGroup" priority="0x0600">
         <Parent guid="VSMainMenu" id="Tools"/>
+      </Group>
+
+      <Group guid="CodeShot" id="ToolbarActionsGroup" priority="0x0100">
+        <Parent guid="CodeShot" id="CodeShotToolbar" />
+      </Group>
+
+      <Group guid="CodeShot" id="ToolbarFontGroup" priority="0x0200">
+        <Parent guid="CodeShot" id="CodeShotToolbar" />
+      </Group>
+
+      <Group guid="CodeShot" id="ToolbarOptionsGroup" priority="0x0300">
+        <Parent guid="CodeShot" id="CodeShotToolbar" />
+      </Group>
+
+      <Group guid="CodeShot" id="OptionsMenuGroup" priority="0x0100">
+        <Parent guid="CodeShot" id="OptionsMenu" />
+      </Group>
+
+      <Group guid="CodeShot" id="OptionsMenuSettingsGroup" priority="0x0200">
+        <Parent guid="CodeShot" id="OptionsMenu" />
       </Group>
     </Groups>
 
@@ -25,20 +65,128 @@
           <LocCanonicalName>.CodeShot.Open</LocCanonicalName>
         </Strings>
       </Button>
+
+      <Button guid="CodeShot" id="RefreshPreviewCommand" priority="0x0100" type="Button">
+        <Parent guid="CodeShot" id="ToolbarActionsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Refresh" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Refresh Preview</ButtonText>
+          <ToolTipText>Update the preview from the current editor selection</ToolTipText>
+          <LocCanonicalName>.CodeShot.RefreshPreview</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="CopyImageCommand" priority="0x0200" type="Button">
+        <Parent guid="CodeShot" id="ToolbarActionsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Copy" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Copy Image</ButtonText>
+          <ToolTipText>Copy the screenshot to the clipboard</ToolTipText>
+          <LocCanonicalName>.CodeShot.CopyImage</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="SaveImageCommand" priority="0x0300" type="Button">
+        <Parent guid="CodeShot" id="ToolbarActionsGroup" />
+        <Icon guid="ImageCatalogGuid" id="SaveAs" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Save Image As...</ButtonText>
+          <ToolTipText>Save the screenshot as a PNG file</ToolTipText>
+          <LocCanonicalName>.CodeShot.SaveImage</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="ShowLineNumbersCommand" priority="0x0100" type="Button">
+        <Parent guid="CodeShot" id="OptionsMenuGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Line Numbers</ButtonText>
+          <ToolTipText>Show line numbers in the screenshot</ToolTipText>
+          <LocCanonicalName>.CodeShot.ShowLineNumbers</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="ShowTitleBarCommand" priority="0x0200" type="Button">
+        <Parent guid="CodeShot" id="OptionsMenuGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Title Bar</ButtonText>
+          <ToolTipText>Show the file name title bar in the screenshot</ToolTipText>
+          <LocCanonicalName>.CodeShot.ShowTitleBar</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="OpenOptionsCommand" priority="0x0100" type="Button">
+        <Parent guid="CodeShot" id="OptionsMenuSettingsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Settings" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>FixMenuController</CommandFlag>
+        <Strings>
+          <ButtonText>Options...</ButtonText>
+          <ToolTipText>Open the CodeShot options page</ToolTipText>
+          <LocCanonicalName>.CodeShot.Options</LocCanonicalName>
+        </Strings>
+      </Button>
     </Buttons>
+
+    <Combos>
+      <Combo guid="CodeShot" id="FontFamilyCombo" priority="0x0100" type="DropDownCombo" defaultWidth="150" idCommandList="FontFamilyComboList">
+        <Parent guid="CodeShot" id="ToolbarFontGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Font</ButtonText>
+          <ToolTipText>Font used in the screenshot</ToolTipText>
+          <LocCanonicalName>.CodeShot.Font</LocCanonicalName>
+        </Strings>
+      </Combo>
+
+      <Combo guid="CodeShot" id="FontSizeCombo" priority="0x0200" type="DynamicCombo" defaultWidth="50" idCommandList="FontSizeComboList">
+        <Parent guid="CodeShot" id="ToolbarFontGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Font Size</ButtonText>
+          <ToolTipText>Font size used in the screenshot</ToolTipText>
+          <LocCanonicalName>.CodeShot.FontSize</LocCanonicalName>
+        </Strings>
+      </Combo>
+    </Combos>
 
   </Commands>
 
-  <CommandPlacements>
-    <CommandPlacement guid="CodeShot" id="MyMenuGroup" priority="0x0500">
-      <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
-    </CommandPlacement>
-  </CommandPlacements>
+  <KeyBindings>
+    <KeyBinding guid="CodeShot" id="MyCommand" editor="guidVSStd97" key1="P" mod1="Control Shift" />
+  </KeyBindings>
 
   <Symbols>
     <GuidSymbol name="CodeShot" value="{a7a7b4b8-f629-4a80-9156-c3dcaae4256a}">
       <IDSymbol name="MyMenuGroup" value="0x0001" />
       <IDSymbol name="MyCommand" value="0x0100" />
+
+      <IDSymbol name="CodeShotToolbar" value="0x1000" />
+      <IDSymbol name="ToolbarActionsGroup" value="0x1010" />
+      <IDSymbol name="ToolbarFontGroup" value="0x1020" />
+      <IDSymbol name="ToolbarOptionsGroup" value="0x1030" />
+      <IDSymbol name="OptionsMenu" value="0x1040" />
+      <IDSymbol name="OptionsMenuGroup" value="0x1050" />
+      <IDSymbol name="OptionsMenuSettingsGroup" value="0x1060" />
+
+      <IDSymbol name="RefreshPreviewCommand" value="0x0110" />
+      <IDSymbol name="CopyImageCommand" value="0x0120" />
+      <IDSymbol name="SaveImageCommand" value="0x0130" />
+      <IDSymbol name="ShowLineNumbersCommand" value="0x0140" />
+      <IDSymbol name="ShowTitleBarCommand" value="0x0150" />
+      <IDSymbol name="OpenOptionsCommand" value="0x0180" />
+
+      <IDSymbol name="FontFamilyCombo" value="0x0160" />
+      <IDSymbol name="FontFamilyComboList" value="0x0161" />
+      <IDSymbol name="FontSizeCombo" value="0x0170" />
+      <IDSymbol name="FontSizeComboList" value="0x0171" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

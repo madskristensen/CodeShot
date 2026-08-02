@@ -26,17 +26,70 @@ namespace CodeShot.ToolWindows
     {
         private string _selectedCode = string.Empty;
         private FlowDocument? _classifiedDocument;
-        private int _selectionStartLine;
         private IWpfTextView? _trackedTextView;
         private bool _isRefreshingSelection;
+        private bool _isApplyingOptions;
+        private bool _showLineNumbers = true;
+        private bool _showTitleBar = true;
+        private string _fontFamilyName = FontCatalog.FallbackFamily;
+        private double _fontSize = FontCatalog.FallbackSize;
 
         public CodeShotToolWindowControl()
         {
             InitializeComponent();
+            Current = this;
             ApplyTheme();
             VSColorTheme.ThemeChanged += OnThemeChanged;
+            General.Saved += OnOptionsSaved;
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
+        }
+
+        // The toolbar commands live in the package, so they need a way to reach the active preview.
+        internal static CodeShotToolWindowControl? Current { get; private set; }
+
+        internal bool ShowLineNumbers
+        {
+            get => _showLineNumbers;
+            set
+            {
+                _showLineNumbers = value;
+                UpdatePreviewText();
+                SaveOptions();
+            }
+        }
+
+        internal bool ShowTitleBar
+        {
+            get => _showTitleBar;
+            set
+            {
+                _showTitleBar = value;
+                TitleBarBorder.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+                SaveOptions();
+            }
+        }
+
+        internal string PreviewFontFamily
+        {
+            get => _fontFamilyName;
+            set
+            {
+                _fontFamilyName = FontCatalog.ResolveFamily(value);
+                ApplyFontSettings();
+                SaveOptions();
+            }
+        }
+
+        internal double PreviewFontSize
+        {
+            get => _fontSize;
+            set
+            {
+                _fontSize = FontCatalog.ClampSize(value);
+                ApplyFontSettings();
+                SaveOptions();
+            }
         }
 
         private void OnThemeChanged(ThemeChangedEventArgs e)
@@ -54,7 +107,14 @@ namespace CodeShot.ToolWindows
         private void OnUnloaded(object sender, RoutedEventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (ReferenceEquals(Current, this))
+            {
+                Current = null;
+            }
+
             VSColorTheme.ThemeChanged -= OnThemeChanged;
+            General.Saved -= OnOptionsSaved;
             DetachFromSelectionChanges();
             Unloaded -= OnUnloaded;
         }
@@ -63,29 +123,24 @@ namespace CodeShot.ToolWindows
         {
             Loaded -= OnLoaded;
             _ = RunSafeAsync(
-                async () => await RefreshFromSelectionAsync(),
+                async () =>
+                {
+                    General options = await General.GetLiveInstanceAsync();
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    ApplyOptions(options);
+                    await RefreshFromSelectionAsync();
+                },
                 "Could not initialize the preview.");
         }
 
-        private void RefreshButton_OnClick(object sender, RoutedEventArgs e)
+        internal void Refresh()
         {
             _ = RunSafeAsync(
                 async () => await RefreshFromSelectionAsync(),
                 "Could not refresh from the current selection.");
         }
 
-        private void PreviewOptionChanged(object sender, RoutedEventArgs e)
-        {
-            if (TitleBarBorder is null || ShowTitleBarCheckBox is null)
-            {
-                return;
-            }
-
-            TitleBarBorder.Visibility = ShowTitleBarCheckBox.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
-            UpdatePreviewText();
-        }
-
-        private void CopyButton_OnClick(object sender, RoutedEventArgs e)
+        internal void CopyImage()
         {
             try
             {
@@ -106,7 +161,7 @@ namespace CodeShot.ToolWindows
             }
         }
 
-        private void SaveButton_OnClick(object sender, RoutedEventArgs e)
+        internal void SaveImage()
         {
             try
             {
@@ -177,7 +232,6 @@ namespace CodeShot.ToolWindows
                 }
 
                 _selectedCode = string.Join(Environment.NewLine, selectedSpans.Select(span => span.GetText()));
-                _selectionStartLine = selectedSpans[0].Start.GetContainingLine().LineNumber + 1;
                 _classifiedDocument = BuildClassifiedDocument(textView, selectedSpans);
 
                 var documentName = Path.GetFileName(dte?.ActiveDocument?.FullName ?? string.Empty);
@@ -198,9 +252,8 @@ namespace CodeShot.ToolWindows
         {
             _selectedCode = string.Empty;
             _classifiedDocument = null;
-            _selectionStartLine = 0;
             TitleText.Text = "No selection";
-            StatusText.Text = "Select code in the editor to update preview.";
+            StatusText.Text = "Select code in the editor to update the preview.";
             UpdatePreviewText();
         }
 
@@ -223,6 +276,7 @@ namespace CodeShot.ToolWindows
             {
                 SetPreviewPlainText(string.Empty);
                 LineNumbersText.Text = string.Empty;
+                ApplyFontSettings();
                 return;
             }
 
@@ -235,11 +289,12 @@ namespace CodeShot.ToolWindows
                 SetPreviewPlainText(string.Join(Environment.NewLine, lines));
             }
 
-            if (ShowLineNumbersCheckBox.IsChecked == true)
+            ApplyFontSettings();
+
+            if (_showLineNumbers)
             {
-                var start = Math.Max(1, _selectionStartLine);
-                var width = (start + lines.Length - 1).ToString().Length;
-                var numberedLines = lines.Select((_, index) => (start + index).ToString().PadLeft(width));
+                var width = lines.Length.ToString().Length;
+                var numberedLines = lines.Select((_, index) => (index + 1).ToString().PadLeft(width));
                 LineNumbersText.Text = string.Join(Environment.NewLine, numberedLines);
                 LineNumbersText.Visibility = Visibility.Visible;
                 return;
@@ -293,56 +348,36 @@ namespace CodeShot.ToolWindows
             var toolWindowBackground = ToMediaColor(VSColorTheme.GetThemedColor(EnvironmentColors.ToolWindowBackgroundColorKey));
             var toolWindowText = ToMediaColor(VSColorTheme.GetThemedColor(EnvironmentColors.ToolWindowTextColorKey));
             var (editorForegroundBrush, editorBackgroundBrush) = GetEditorTextBrushes(toolWindowText, toolWindowBackground);
-            var editorForeground = ((SolidColorBrush)editorForegroundBrush).Color;
-            var editorBackground = ((SolidColorBrush)editorBackgroundBrush).Color;
-            var isDark = IsDark(toolWindowBackground);
 
-            var chromeBackground = isDark
-                ? Blend(toolWindowBackground, Colors.White, 0.12)
-                : Blend(toolWindowBackground, Colors.Black, 0.08);
-            var previewBackground = editorBackground;
+            ApplySnapshotColors(editorForegroundBrush, editorBackgroundBrush);
+        }
+
+        // The snapshot is part of the exported image, so it is colored from the editor instead of the tool window chrome.
+        private void ApplySnapshotColors(Brush? foreground, Brush? background)
+        {
+            var editorForeground = (foreground as SolidColorBrush)?.Color ?? Colors.Gray;
+            var editorBackground = (background as SolidColorBrush)?.Color ?? Colors.White;
+            var isDark = IsDark(editorBackground);
+
             var captureBackground = isDark
-                ? Blend(toolWindowBackground, Colors.White, 0.22)
-                : Blend(toolWindowBackground, Colors.Black, 0.16);
-            var subtleBorder = isDark
-                ? Blend(toolWindowText, toolWindowBackground, 0.72)
-                : Blend(toolWindowText, toolWindowBackground, 0.82);
-
-            RootGrid.Background = new SolidColorBrush(toolWindowBackground);
-            CommandBarBorder.Background = new SolidColorBrush(chromeBackground);
-            CommandBarBorder.BorderBrush = new SolidColorBrush(subtleBorder);
+                ? Blend(editorBackground, Colors.White, 0.16)
+                : Blend(editorBackground, Colors.Black, 0.12);
+            var titleBarBackground = isDark
+                ? Blend(editorBackground, Colors.White, 0.07)
+                : Blend(editorBackground, Colors.Black, 0.05);
+            var frameBorder = Blend(editorBackground, editorForeground, 0.22);
 
             CaptureSurface.Background = new SolidColorBrush(captureBackground);
-            SnapshotFrame.Background = new SolidColorBrush(previewBackground);
-            SnapshotFrame.BorderBrush = new SolidColorBrush(subtleBorder);
-            TitleBarBorder.Background = new SolidColorBrush(chromeBackground);
-            TitleBarBorder.BorderBrush = new SolidColorBrush(subtleBorder);
+            SnapshotFrame.Background = new SolidColorBrush(editorBackground);
+            SnapshotFrame.BorderBrush = new SolidColorBrush(frameBorder);
+            TitleBarBorder.Background = new SolidColorBrush(titleBarBackground);
+            TitleBarBorder.BorderBrush = new SolidColorBrush(frameBorder);
             TitleBarBorder.BorderThickness = new Thickness(0, 0, 0, 1);
 
             PreviewRichText.Background = Brushes.Transparent;
-            PreviewRichText.Foreground = editorForegroundBrush;
+            PreviewRichText.Foreground = foreground ?? new SolidColorBrush(editorForeground);
             LineNumbersText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.55));
-            TitleText.Foreground = new SolidColorBrush(toolWindowText);
-            StatusText.Foreground = new SolidColorBrush(Blend(toolWindowText, toolWindowBackground, 0.35));
-            ShowLineNumbersCheckBox.Foreground = new SolidColorBrush(toolWindowText);
-            ShowTitleBarCheckBox.Foreground = new SolidColorBrush(toolWindowText);
-
-            StyleButton(RefreshButton, chromeBackground, toolWindowText, subtleBorder);
-            StyleButton(CopyButton, chromeBackground, toolWindowText, subtleBorder);
-            StyleButton(SaveButton, chromeBackground, toolWindowText, subtleBorder);
-        }
-
-        private static void StyleButton(Button button, Color background, Color foreground, Color border)
-        {
-            if (button is null)
-            {
-                return;
-            }
-
-            button.Background = new SolidColorBrush(background);
-            button.Foreground = new SolidColorBrush(foreground);
-            button.BorderBrush = new SolidColorBrush(border);
-            button.BorderThickness = new Thickness(1);
+            TitleText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.15));
         }
 
         private static bool IsDark(Color color)
@@ -503,19 +538,12 @@ namespace CodeShot.ToolWindows
 
         private void ApplyEditorColors(Brush? foreground, Brush? background)
         {
-            if (foreground is not null)
+            if (foreground is null && background is null)
             {
-                PreviewRichText.Foreground = foreground;
+                return;
             }
 
-            if (background is SolidColorBrush solidBackground)
-            {
-                SnapshotFrame.Background = solidBackground;
-                LineNumbersText.Foreground = new SolidColorBrush(Blend(
-                    (foreground as SolidColorBrush)?.Color ?? Colors.Gray,
-                    solidBackground.Color,
-                    0.55));
-            }
+            ApplySnapshotColors(foreground ?? PreviewRichText.Foreground, background ?? SnapshotFrame.Background);
         }
 
         private static void AppendClassifiedSpanRuns(
@@ -643,10 +671,82 @@ namespace CodeShot.ToolWindows
         private FlowDocument CreateBaseDocument()
             => new FlowDocument
             {
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 13,
+                FontFamily = new FontFamily(_fontFamilyName),
+                FontSize = _fontSize,
                 PagePadding = new Thickness(0)
             };
+
+        private void OnOptionsSaved(General options)
+        {
+            _ = RunSafeAsync(
+                async () =>
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    ApplyOptions(options);
+                },
+                "Could not apply the CodeShot options.");
+        }
+
+        private void ApplyOptions(General options)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            var (editorFamily, editorSize) = FontCatalog.GetEditorFont();
+            _isApplyingOptions = true;
+
+            try
+            {
+                PreviewFontFamily = string.IsNullOrWhiteSpace(options.FontFamily) ? editorFamily : options.FontFamily;
+                PreviewFontSize = options.FontSize <= 0 ? editorSize : options.FontSize;
+                ShowTitleBar = options.ShowTitleBar;
+                ShowLineNumbers = options.ShowLineNumbers;
+            }
+            finally
+            {
+                _isApplyingOptions = false;
+            }
+        }
+
+        private void SaveOptions()
+        {
+            if (_isApplyingOptions)
+            {
+                return;
+            }
+
+            _ = RunSafeAsync(
+                async () =>
+                {
+                    General options = await General.GetLiveInstanceAsync();
+                    options.FontFamily = _fontFamilyName;
+                    options.FontSize = _fontSize;
+                    options.ShowLineNumbers = _showLineNumbers;
+                    options.ShowTitleBar = _showTitleBar;
+                    await options.SaveAsync();
+                },
+                "Could not save the CodeShot options.");
+        }
+
+        private void ApplyFontSettings()
+        {
+            if (PreviewRichText is null || LineNumbersText is null)
+            {
+                return;
+            }
+
+            var fontFamily = new FontFamily(_fontFamilyName);
+
+            PreviewRichText.FontFamily = fontFamily;
+            PreviewRichText.FontSize = _fontSize;
+            LineNumbersText.FontFamily = fontFamily;
+            LineNumbersText.FontSize = _fontSize;
+
+            if (PreviewRichText.Document is not null)
+            {
+                PreviewRichText.Document.FontFamily = fontFamily;
+                PreviewRichText.Document.FontSize = _fontSize;
+            }
+        }
 
         private async Task RunSafeAsync(Func<Task> action, string userMessage)
         {
