@@ -37,10 +37,6 @@ namespace CodeShot.ToolWindows
         public CodeShotToolWindowControl()
         {
             InitializeComponent();
-            Current = this;
-            ApplyTheme();
-            VSColorTheme.ThemeChanged += OnThemeChanged;
-            General.Saved += OnOptionsSaved;
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
         }
@@ -116,12 +112,21 @@ namespace CodeShot.ToolWindows
             VSColorTheme.ThemeChanged -= OnThemeChanged;
             General.Saved -= OnOptionsSaved;
             DetachFromSelectionChanges();
-            Unloaded -= OnUnloaded;
         }
 
+        // WPF raises Loaded and Unloaded every time the tool window is docked, floated or auto-hidden,
+        // so registration has to be repeatable instead of a one-time setup.
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            Loaded -= OnLoaded;
+            Current = this;
+
+            VSColorTheme.ThemeChanged -= OnThemeChanged;
+            VSColorTheme.ThemeChanged += OnThemeChanged;
+            General.Saved -= OnOptionsSaved;
+            General.Saved += OnOptionsSaved;
+
+            ApplyTheme();
+
             _ = RunSafeAsync(
                 async () =>
                 {
