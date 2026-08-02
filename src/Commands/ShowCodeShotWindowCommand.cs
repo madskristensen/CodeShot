@@ -5,7 +5,7 @@
     {
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
-            await Package.ShowToolWindowAsync(typeof(ToolWindows.CodeShotToolWindow), 0, true, Package.DisposalToken);
+            await ToolWindows.CodeShotToolWindow.ShowAsync();
         }
     }
 }

@@ -38,14 +38,16 @@ namespace CodeShot.ToolWindows
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
 
-        public CodeShotToolWindowControl()
+        public CodeShotToolWindowControl(General options)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             InitializeComponent();
             _refreshTimer = new DispatcherTimer(DispatcherPriority.Background)
             {
                 Interval = SelectionRefreshDelay
             };
             _refreshTimer.Tick += OnRefreshTimerTick;
+            ApplyOptions(options);
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
         }
@@ -170,14 +172,10 @@ namespace CodeShot.ToolWindows
 
             ApplyTheme();
 
+            // The settings were applied when the control was created, and the applied values survive
+            // being rehosted, so only the preview itself has to be rebuilt here.
             RunSafe(
-                async () =>
-                {
-                    General options = await General.GetLiveInstanceAsync();
-                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                    ApplyOptions(options);
-                    await RefreshFromSelectionAsync();
-                },
+                RefreshFromSelectionAsync,
                 "Could not initialize the preview.");
         }
 

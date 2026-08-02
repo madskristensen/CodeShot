@@ -25,10 +25,11 @@ namespace CodeShot.ToolWindows
 
         // Scanning the installed fonts builds a GlyphTypeface per family, which loads font files from
         // disk. Starting it early keeps that work off the UI thread, where the list is first needed by
-        // the toolbar drop-down and the options page.
-        public static void Prime()
+        // the toolbar drop-down and the options page. Callers that can wait should await the returned
+        // task so they never hit the synchronous join in Families.
+        public static Task PrimeAsync()
         {
-            _ = GetMonospaceFamiliesAsync();
+            return GetMonospaceFamiliesAsync();
         }
 
         public static IReadOnlyList<string> Families
