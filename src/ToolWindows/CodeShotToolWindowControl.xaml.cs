@@ -1,5 +1,3 @@
-using EnvDTE;
-using EnvDTE80;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.PlatformUI;
@@ -245,7 +243,7 @@ namespace CodeShot.ToolWindows
                 do
                 {
                     _isRefreshPending = false;
-                    await RefreshCoreAsync();
+                    RefreshCore();
                 }
                 while (_isRefreshPending);
             }
@@ -255,10 +253,10 @@ namespace CodeShot.ToolWindows
             }
         }
 
-        private async System.Threading.Tasks.Task RefreshCoreAsync()
+        private void RefreshCore()
         {
-            var dte = await VS.GetServiceAsync<DTE, DTE2>();
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             var textView = GetActiveTextView();
 
             if (textView is null || textView.Selection.IsEmpty || textView.Selection.SelectedSpans.Count == 0)
@@ -280,13 +278,25 @@ namespace CodeShot.ToolWindows
             _selectedCode = string.Join(Environment.NewLine, selectedSpans.Select(span => span.GetText()));
             _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
 
-            var documentName = Path.GetFileName(dte?.ActiveDocument?.FullName ?? string.Empty);
+            var documentName = GetDocumentName(textView);
             TitleText.Text = string.IsNullOrWhiteSpace(documentName) ? "CodeShot" : documentName;
             StatusText.Text = _classifiedInlines is null
                 ? "Preview updated from current selection (plain text fallback)."
                 : "Preview updated from current selection.";
 
             UpdatePreviewText();
+        }
+
+        // The name comes from the captured view so it always matches the code in the preview,
+        // which DTE.ActiveDocument does not guarantee and which can throw when no document is active.
+        private static string GetDocumentName(IWpfTextView textView)
+        {
+            var componentModel = Package.GetGlobalService(typeof(SComponentModel)) as IComponentModel;
+            var documentFactory = componentModel?.GetService<ITextDocumentFactoryService>();
+
+            return documentFactory?.TryGetTextDocument(textView.TextDataModel.DocumentBuffer, out var document) == true
+                ? Path.GetFileName(document.FilePath)
+                : string.Empty;
         }
 
         private void ClearSelectionPreview()
