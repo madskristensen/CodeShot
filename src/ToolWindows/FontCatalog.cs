@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 
@@ -16,9 +17,20 @@ namespace CodeShot.ToolWindows
         public const double MinimumSize = 6;
         public const double MaximumSize = 96;
 
+        private static readonly object SyncRoot = new object();
+
         private static IReadOnlyList<string>? _families;
+        private static Task<List<string>>? _monospaceFamiliesTask;
 
         public static IReadOnlyList<double> Sizes { get; } = new double[] { 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32 };
+
+        // Scanning the installed fonts builds a GlyphTypeface per family, which loads font files from
+        // disk. Starting it early keeps that work off the UI thread, where the list is first needed by
+        // the toolbar drop-down and the options page.
+        public static void Prime()
+        {
+            _ = GetMonospaceFamiliesAsync();
+        }
 
         public static IReadOnlyList<string> Families
         {
@@ -29,22 +41,9 @@ namespace CodeShot.ToolWindows
                     return _families;
                 }
 
-                var families = new List<string>();
-
-                try
-                {
-                    families.AddRange(Fonts.SystemFontFamilies
-                        .Where(IsMonospace)
-                        .Select(family => family.Source)
-                        .Where(name => !string.IsNullOrWhiteSpace(name))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .OrderBy(name => name, StringComparer.OrdinalIgnoreCase));
-                }
-                catch (Exception ex)
-                {
-                    _ = ex.LogAsync();
-                }
-
+                // The scan runs on the thread pool and never needs the main thread, so joining it here
+                // cannot deadlock. It is normally already finished because it is primed at package load.
+                var families = ThreadHelper.JoinableTaskFactory.Run(GetMonospaceFamiliesAsync).ToList();
                 var editorFamily = GetEditorFont().family;
 
                 if (!string.IsNullOrWhiteSpace(editorFamily) && !families.Contains(editorFamily, StringComparer.OrdinalIgnoreCase))
@@ -61,6 +60,35 @@ namespace CodeShot.ToolWindows
                 _families = families;
                 return _families;
             }
+        }
+
+        private static Task<List<string>> GetMonospaceFamiliesAsync()
+        {
+            lock (SyncRoot)
+            {
+                return _monospaceFamiliesTask ??= Task.Run(GetMonospaceFamilies);
+            }
+        }
+
+        private static List<string> GetMonospaceFamilies()
+        {
+            var families = new List<string>();
+
+            try
+            {
+                families.AddRange(Fonts.SystemFontFamilies
+                    .Where(IsMonospace)
+                    .Select(family => family.Source)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(name => name, StringComparer.OrdinalIgnoreCase));
+            }
+            catch (Exception ex)
+            {
+                _ = ex.LogAsync();
+            }
+
+            return families;
         }
 
         public static (string family, double size) GetEditorFont()
