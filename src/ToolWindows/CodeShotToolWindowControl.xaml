@@ -55,23 +55,15 @@
                                 FontFamily="Consolas"
                                 FontSize="13"
                                 TextAlignment="Right"
-                                VerticalAlignment="Top"
-                                Margin="0,2,0,0" />
+                                VerticalAlignment="Top" />
 
-                            <RichTextBox
+                            <TextBlock
                                 Grid.Column="2"
-                                x:Name="PreviewRichText"
-                                IsReadOnly="True"
-                                IsDocumentEnabled="False"
-                                BorderThickness="0"
-                                Background="Transparent"
+                                x:Name="PreviewText"
                                 FontFamily="Consolas"
                                 FontSize="13"
-                                HorizontalScrollBarVisibility="Hidden"
-                                VerticalScrollBarVisibility="Hidden"
-                                Padding="0"
-                                Margin="0"
-                                AcceptsTab="True" />
+                                TextWrapping="NoWrap"
+                                VerticalAlignment="Top" />
                         </Grid>
                     </ScrollViewer>
                 </Grid>

@@ -25,7 +25,7 @@ namespace CodeShot.ToolWindows
     public partial class CodeShotToolWindowControl : UserControl
     {
         private string _selectedCode = string.Empty;
-        private FlowDocument? _classifiedDocument;
+        private IReadOnlyList<Inline>? _classifiedInlines;
         private IWpfTextView? _trackedTextView;
         private bool _isRefreshingSelection;
         private bool _isApplyingOptions;
@@ -232,11 +232,11 @@ namespace CodeShot.ToolWindows
                 }
 
                 _selectedCode = string.Join(Environment.NewLine, selectedSpans.Select(span => span.GetText()));
-                _classifiedDocument = BuildClassifiedDocument(textView, selectedSpans);
+                _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
 
                 var documentName = Path.GetFileName(dte?.ActiveDocument?.FullName ?? string.Empty);
                 TitleText.Text = string.IsNullOrWhiteSpace(documentName) ? "CodeShot" : documentName;
-                StatusText.Text = _classifiedDocument is null
+                StatusText.Text = _classifiedInlines is null
                     ? "Preview updated from current selection (plain text fallback)."
                     : "Preview updated from current selection.";
 
@@ -251,7 +251,7 @@ namespace CodeShot.ToolWindows
         private void ClearSelectionPreview()
         {
             _selectedCode = string.Empty;
-            _classifiedDocument = null;
+            _classifiedInlines = null;
             TitleText.Text = "No selection";
             StatusText.Text = "Select code in the editor to update the preview.";
             UpdatePreviewText();
@@ -259,7 +259,7 @@ namespace CodeShot.ToolWindows
 
         private void UpdatePreviewText()
         {
-            if (PreviewRichText is null || LineNumbersText is null)
+            if (PreviewText is null || LineNumbersText is null)
             {
                 return;
             }
@@ -280,9 +280,9 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            if (_classifiedDocument is not null)
+            if (_classifiedInlines is not null)
             {
-                PreviewRichText.Document = _classifiedDocument;
+                SetPreviewInlines(_classifiedInlines);
             }
             else
             {
@@ -374,8 +374,7 @@ namespace CodeShot.ToolWindows
             TitleBarBorder.BorderBrush = new SolidColorBrush(frameBorder);
             TitleBarBorder.BorderThickness = new Thickness(0, 0, 0, 1);
 
-            PreviewRichText.Background = Brushes.Transparent;
-            PreviewRichText.Foreground = foreground ?? new SolidColorBrush(editorForeground);
+            PreviewText.Foreground = foreground ?? new SolidColorBrush(editorForeground);
             LineNumbersText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.55));
             TitleText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.15));
         }
@@ -495,7 +494,7 @@ namespace CodeShot.ToolWindows
             return (line, start, end);
         }
 
-        private FlowDocument? BuildClassifiedDocument(IWpfTextView textView, IReadOnlyList<SnapshotSpan> selectedSpans)
+        private IReadOnlyList<Inline>? BuildClassifiedInlines(IWpfTextView textView, IReadOnlyList<SnapshotSpan> selectedSpans)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -517,23 +516,18 @@ namespace CodeShot.ToolWindows
 
             ApplyEditorColors(defaultForeground, defaultBackground);
 
-            var document = CreateBaseDocument();
-            var paragraph = new Paragraph { Margin = new Thickness(0) };
+            var inlines = new List<Inline>();
 
             for (var i = 0; i < selectedSpans.Count; i++)
             {
-                AppendClassifiedSpanRuns(paragraph, classifier, formatMap, selectedSpans[i], defaultForeground, defaultBackground);
+                AppendClassifiedSpanRuns(inlines, classifier, formatMap, selectedSpans[i], defaultForeground, defaultBackground);
                 if (i < selectedSpans.Count - 1)
                 {
-                    paragraph.Inlines.Add(new LineBreak());
+                    inlines.Add(new LineBreak());
                 }
             }
 
-            document.Blocks.Clear();
-            document.Blocks.Add(paragraph);
-            document.PageWidth = 100000;
-            document.PagePadding = new Thickness(0);
-            return document;
+            return inlines;
         }
 
         private void ApplyEditorColors(Brush? foreground, Brush? background)
@@ -543,11 +537,11 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            ApplySnapshotColors(foreground ?? PreviewRichText.Foreground, background ?? SnapshotFrame.Background);
+            ApplySnapshotColors(foreground ?? PreviewText.Foreground, background ?? SnapshotFrame.Background);
         }
 
         private static void AppendClassifiedSpanRuns(
-            Paragraph paragraph,
+            List<Inline> inlines,
             IClassifier classifier,
             IClassificationFormatMap formatMap,
             SnapshotSpan selectedSpan,
@@ -567,7 +561,7 @@ namespace CodeShot.ToolWindows
                 if (classificationSpan.Span.Start > currentPosition)
                 {
                     var gapSpan = new SnapshotSpan(currentPosition, classificationSpan.Span.Start);
-                    AppendText(paragraph, gapSpan.GetText(), defaultForeground, null);
+                    AppendText(inlines, gapSpan.GetText(), defaultForeground, null);
                 }
 
                 var textProperties = formatMap.GetTextProperties(classificationSpan.ClassificationType);
@@ -576,18 +570,18 @@ namespace CodeShot.ToolWindows
                     ? null
                     : textProperties.BackgroundBrush;
 
-                AppendText(paragraph, classificationSpan.Span.GetText(), foreground, background);
+                AppendText(inlines, classificationSpan.Span.GetText(), foreground, background);
                 currentPosition = classificationSpan.Span.End;
             }
 
             if (currentPosition < selectedSpan.End)
             {
                 var trailingSpan = new SnapshotSpan(currentPosition, selectedSpan.End);
-                AppendText(paragraph, trailingSpan.GetText(), defaultForeground, null);
+                AppendText(inlines, trailingSpan.GetText(), defaultForeground, null);
             }
         }
 
-        private static void AppendText(Paragraph paragraph, string text, Brush? foreground, Brush? background)
+        private static void AppendText(List<Inline> inlines, string text, Brush? foreground, Brush? background)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -600,7 +594,7 @@ namespace CodeShot.ToolWindows
             {
                 if (i > 0)
                 {
-                    paragraph.Inlines.Add(new LineBreak());
+                    inlines.Add(new LineBreak());
                 }
 
                 if (lines[i].Length == 0)
@@ -620,7 +614,7 @@ namespace CodeShot.ToolWindows
                     run.Background = background;
                 }
 
-                paragraph.Inlines.Add(run);
+                inlines.Add(run);
             }
         }
 
@@ -660,21 +654,16 @@ namespace CodeShot.ToolWindows
 
         private void SetPreviewPlainText(string text)
         {
-            var document = CreateBaseDocument();
-            var paragraph = new Paragraph { Margin = new Thickness(0) };
-            AppendText(paragraph, text, null, null);
-            document.Blocks.Add(paragraph);
-            document.PageWidth = 100000;
-            PreviewRichText.Document = document;
+            var inlines = new List<Inline>();
+            AppendText(inlines, text, null, null);
+            SetPreviewInlines(inlines);
         }
 
-        private FlowDocument CreateBaseDocument()
-            => new FlowDocument
-            {
-                FontFamily = new FontFamily(_fontFamilyName),
-                FontSize = _fontSize,
-                PagePadding = new Thickness(0)
-            };
+        private void SetPreviewInlines(IReadOnlyList<Inline> inlines)
+        {
+            PreviewText.Inlines.Clear();
+            PreviewText.Inlines.AddRange(inlines);
+        }
 
         private void OnOptionsSaved(General options)
         {
@@ -729,23 +718,17 @@ namespace CodeShot.ToolWindows
 
         private void ApplyFontSettings()
         {
-            if (PreviewRichText is null || LineNumbersText is null)
+            if (PreviewText is null || LineNumbersText is null)
             {
                 return;
             }
 
             var fontFamily = new FontFamily(_fontFamilyName);
 
-            PreviewRichText.FontFamily = fontFamily;
-            PreviewRichText.FontSize = _fontSize;
+            PreviewText.FontFamily = fontFamily;
+            PreviewText.FontSize = _fontSize;
             LineNumbersText.FontFamily = fontFamily;
             LineNumbersText.FontSize = _fontSize;
-
-            if (PreviewRichText.Document is not null)
-            {
-                PreviewRichText.Document.FontFamily = fontFamily;
-                PreviewRichText.Document.FontSize = _fontSize;
-            }
         }
 
         private async Task RunSafeAsync(Func<Task> action, string userMessage)
