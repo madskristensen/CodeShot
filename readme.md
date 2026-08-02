@@ -26,6 +26,8 @@ updates from your current selection and keeps syntax coloring when available.
 The common leading indentation is removed automatically, so a deeply nested
 selection is captured without the extra whitespace on the left.
 
+![Tool window](art/tool-window.png)
+
 ## Customize the screenshot before exporting
 
 You can quickly control the final image:
