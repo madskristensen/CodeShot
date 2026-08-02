@@ -58,6 +58,11 @@ namespace CodeShot.ToolWindows
             get => _showLineNumbers;
             set
             {
+                if (_showLineNumbers == value)
+                {
+                    return;
+                }
+
                 _showLineNumbers = value;
                 UpdatePreviewText();
                 SaveOptions();
@@ -69,6 +74,11 @@ namespace CodeShot.ToolWindows
             get => _showTitleBar;
             set
             {
+                if (_showTitleBar == value)
+                {
+                    return;
+                }
+
                 _showTitleBar = value;
                 TitleBarBorder.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
                 SaveOptions();
@@ -80,7 +90,14 @@ namespace CodeShot.ToolWindows
             get => _fontFamilyName;
             set
             {
-                _fontFamilyName = FontCatalog.ResolveFamily(value);
+                var resolved = FontCatalog.ResolveFamily(value);
+
+                if (string.Equals(_fontFamilyName, resolved, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _fontFamilyName = resolved;
                 ApplyFontSettings();
                 SaveOptions();
             }
@@ -91,7 +108,14 @@ namespace CodeShot.ToolWindows
             get => _fontSize;
             set
             {
-                _fontSize = FontCatalog.ClampSize(value);
+                var clamped = FontCatalog.ClampSize(value);
+
+                if (_fontSize == clamped)
+                {
+                    return;
+                }
+
+                _fontSize = clamped;
                 ApplyFontSettings();
                 SaveOptions();
             }
