@@ -95,7 +95,13 @@ namespace CodeShot.ToolWindows
                 {
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                     ApplyTheme();
-                    await RefreshFromSelectionAsync();
+
+                    // Recoloring must not discard the preview, so the selection is only re-read
+                    // when the tracked view still has one to rebuild the classified colors from.
+                    if (_trackedTextView?.Selection.IsEmpty == false)
+                    {
+                        await RefreshFromSelectionAsync();
+                    }
                 },
                 "Could not apply theme updates.");
         }
