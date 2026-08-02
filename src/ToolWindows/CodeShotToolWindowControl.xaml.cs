@@ -306,6 +306,8 @@ namespace CodeShot.ToolWindows
 
         private RenderTargetBitmap? RenderSnapshot()
         {
+            // The capture surface sizes to its content rather than to the viewport, so the whole
+            // selection is rendered even when the tool window is too small to show all of it.
             CaptureSurface.UpdateLayout();
 
             if (CaptureSurface.ActualWidth <= 0 || CaptureSurface.ActualHeight <= 0)
