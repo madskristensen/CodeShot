@@ -19,15 +19,21 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace CodeShot.ToolWindows
 {
     public partial class CodeShotToolWindowControl : UserControl
     {
+        // Dragging a selection raises SelectionChanged continuously, so rebuilds are debounced.
+        private static readonly TimeSpan SelectionRefreshDelay = TimeSpan.FromMilliseconds(150);
+
+        private readonly DispatcherTimer _refreshTimer;
         private string _selectedCode = string.Empty;
         private IReadOnlyList<Inline>? _classifiedInlines;
         private IWpfTextView? _trackedTextView;
         private bool _isRefreshingSelection;
+        private bool _isRefreshPending;
         private bool _isApplyingOptions;
         private bool _showLineNumbers = true;
         private bool _showTitleBar = true;
@@ -37,6 +43,11 @@ namespace CodeShot.ToolWindows
         public CodeShotToolWindowControl()
         {
             InitializeComponent();
+            _refreshTimer = new DispatcherTimer(DispatcherPriority.Background)
+            {
+                Interval = SelectionRefreshDelay
+            };
+            _refreshTimer.Tick += OnRefreshTimerTick;
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
         }
@@ -117,6 +128,7 @@ namespace CodeShot.ToolWindows
 
             VSColorTheme.ThemeChanged -= OnThemeChanged;
             General.Saved -= OnOptionsSaved;
+            _refreshTimer.Stop();
             DetachFromSelectionChanges();
         }
 
@@ -220,6 +232,9 @@ namespace CodeShot.ToolWindows
 
             if (_isRefreshingSelection)
             {
+                // A pass is already running and it awaits, so queue a rerun instead of
+                // dropping this request and leaving the preview stale.
+                _isRefreshPending = true;
                 return;
             }
 
@@ -227,40 +242,51 @@ namespace CodeShot.ToolWindows
 
             try
             {
-                var dte = await VS.GetServiceAsync<DTE, DTE2>();
-                var textView = GetActiveTextView();
-
-                if (textView is null || textView.Selection.IsEmpty || textView.Selection.SelectedSpans.Count == 0)
+                do
                 {
-                    ClearSelectionPreview();
-                    return;
+                    _isRefreshPending = false;
+                    await RefreshCoreAsync();
                 }
-
-                AttachToSelectionChanges(textView);
-
-                var selectedSpans = GetNormalizedSelectionSpans(textView);
-
-                if (selectedSpans.Count == 0)
-                {
-                    ClearSelectionPreview();
-                    return;
-                }
-
-                _selectedCode = string.Join(Environment.NewLine, selectedSpans.Select(span => span.GetText()));
-                _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
-
-                var documentName = Path.GetFileName(dte?.ActiveDocument?.FullName ?? string.Empty);
-                TitleText.Text = string.IsNullOrWhiteSpace(documentName) ? "CodeShot" : documentName;
-                StatusText.Text = _classifiedInlines is null
-                    ? "Preview updated from current selection (plain text fallback)."
-                    : "Preview updated from current selection.";
-
-                UpdatePreviewText();
+                while (_isRefreshPending);
             }
             finally
             {
                 _isRefreshingSelection = false;
             }
+        }
+
+        private async System.Threading.Tasks.Task RefreshCoreAsync()
+        {
+            var dte = await VS.GetServiceAsync<DTE, DTE2>();
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            var textView = GetActiveTextView();
+
+            if (textView is null || textView.Selection.IsEmpty || textView.Selection.SelectedSpans.Count == 0)
+            {
+                ClearSelectionPreview();
+                return;
+            }
+
+            AttachToSelectionChanges(textView);
+
+            var selectedSpans = GetNormalizedSelectionSpans(textView);
+
+            if (selectedSpans.Count == 0)
+            {
+                ClearSelectionPreview();
+                return;
+            }
+
+            _selectedCode = string.Join(Environment.NewLine, selectedSpans.Select(span => span.GetText()));
+            _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
+
+            var documentName = Path.GetFileName(dte?.ActiveDocument?.FullName ?? string.Empty);
+            TitleText.Text = string.IsNullOrWhiteSpace(documentName) ? "CodeShot" : documentName;
+            StatusText.Text = _classifiedInlines is null
+                ? "Preview updated from current selection (plain text fallback)."
+                : "Preview updated from current selection.";
+
+            UpdatePreviewText();
         }
 
         private void ClearSelectionPreview()
@@ -665,6 +691,13 @@ namespace CodeShot.ToolWindows
 
         private void OnTextSelectionChanged(object sender, EventArgs e)
         {
+            _refreshTimer.Stop();
+            _refreshTimer.Start();
+        }
+
+        private void OnRefreshTimerTick(object sender, EventArgs e)
+        {
+            _refreshTimer.Stop();
             RunSafe(
                 RefreshFromSelectionAsync,
                 "Could not refresh from the current selection.");
