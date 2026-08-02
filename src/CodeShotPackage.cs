@@ -2,7 +2,6 @@
 global using Community.VisualStudio.Toolkit;
 global using Microsoft.VisualStudio.Shell;
 global using Task = System.Threading.Tasks.Task;
-using System.ComponentModel.Design;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -19,13 +18,6 @@ namespace CodeShot
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
             await this.RegisterCommandsAsync();
-
-            await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-
-            if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commandService)
-            {
-                Commands.FontComboCommands.Register(commandService);
-            }
         }
     }
 }

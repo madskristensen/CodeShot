@@ -1,45 +1,30 @@
 using CodeShot.ToolWindows;
-using System.ComponentModel.Design;
 using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace CodeShot.Commands
 {
-    // Toolbar combo boxes are not covered by BaseCommand<T> because they exchange values
-    // with the shell through the InValue and OutValue members of OleMenuCmdEventArgs.
-    internal static class FontComboCommands
+    // Toolbar combo boxes exchange values with the shell through the InValue and OutValue members
+    // of OleMenuCmdEventArgs, so Execute is handled synchronously instead of through ExecuteAsync.
+    internal abstract class BaseComboCommand<T> : BaseCommand<T> where T : class, new()
     {
-        public static void Register(OleMenuCommandService commandService)
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
+        protected virtual bool RequiresToolWindow => true;
 
-            AddCommand(commandService, PackageIds.FontFamilyCombo, OnFontFamily, gateOnToolWindow: true);
-            AddCommand(commandService, PackageIds.FontFamilyComboList, OnFontFamilyList, gateOnToolWindow: false);
-            AddCommand(commandService, PackageIds.FontSizeCombo, OnFontSize, gateOnToolWindow: true);
-            AddCommand(commandService, PackageIds.FontSizeComboList, OnFontSizeList, gateOnToolWindow: false);
+        protected abstract object? GetValue();
+
+        protected virtual void SetValue(string value)
+        {
         }
 
-        private static void AddCommand(OleMenuCommandService commandService, int id, EventHandler handler, bool gateOnToolWindow)
+        protected override void BeforeQueryStatus(EventArgs e)
         {
-            var command = new OleMenuCommand(handler, new CommandID(PackageGuids.CodeShot, id));
-
-            if (gateOnToolWindow)
+            if (RequiresToolWindow)
             {
-                command.BeforeQueryStatus += OnBeforeQueryStatus;
-            }
-
-            commandService.AddCommand(command);
-        }
-
-        private static void OnBeforeQueryStatus(object sender, EventArgs e)
-        {
-            if (sender is OleMenuCommand command)
-            {
-                command.Enabled = CodeShotToolWindowControl.Current is not null;
+                Command.Enabled = CodeShotToolWindowControl.Current is not null;
             }
         }
 
-        private static void OnFontFamily(object sender, EventArgs e)
+        protected override void Execute(object sender, EventArgs e)
         {
             try
             {
@@ -48,16 +33,16 @@ namespace CodeShot.Commands
                     return;
                 }
 
-                var control = CodeShotToolWindowControl.Current;
-
                 if (args.OutValue != IntPtr.Zero)
                 {
-                    var current = control?.PreviewFontFamily ?? FontCatalog.ResolveFamily(null);
-                    Marshal.GetNativeVariantForObject(current, args.OutValue);
+                    if (GetValue() is object value)
+                    {
+                        Marshal.GetNativeVariantForObject(value, args.OutValue);
+                    }
                 }
-                else if (control is not null && args.InValue?.ToString() is string family && !string.IsNullOrWhiteSpace(family))
+                else if (args.InValue?.ToString() is string input && !string.IsNullOrWhiteSpace(input))
                 {
-                    control.PreviewFontFamily = family;
+                    SetValue(input);
                 }
             }
             catch (Exception ex)
@@ -65,63 +50,53 @@ namespace CodeShot.Commands
                 _ = ex.LogAsync();
             }
         }
+    }
 
-        private static void OnFontFamilyList(object sender, EventArgs e)
+    [Command(PackageIds.FontFamilyCombo)]
+    internal sealed class FontFamilyComboCommand : BaseComboCommand<FontFamilyComboCommand>
+    {
+        protected override object? GetValue()
+            => CodeShotToolWindowControl.Current?.PreviewFontFamily ?? FontCatalog.ResolveFamily(null);
+
+        protected override void SetValue(string value)
         {
-            try
+            if (CodeShotToolWindowControl.Current is CodeShotToolWindowControl control)
             {
-                if (e is OleMenuCmdEventArgs args && args.OutValue != IntPtr.Zero)
-                {
-                    Marshal.GetNativeVariantForObject(FontCatalog.Families.ToArray(), args.OutValue);
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = ex.LogAsync();
+                control.PreviewFontFamily = value;
             }
         }
+    }
 
-        private static void OnFontSize(object sender, EventArgs e)
+    [Command(PackageIds.FontFamilyComboList)]
+    internal sealed class FontFamilyComboListCommand : BaseComboCommand<FontFamilyComboListCommand>
+    {
+        // The list provider must stay enabled or the drop-down cannot be populated.
+        protected override bool RequiresToolWindow => false;
+
+        protected override object? GetValue() => FontCatalog.Families.ToArray();
+    }
+
+    [Command(PackageIds.FontSizeCombo)]
+    internal sealed class FontSizeComboCommand : BaseComboCommand<FontSizeComboCommand>
+    {
+        protected override object? GetValue()
+            => FontCatalog.FormatSize(CodeShotToolWindowControl.Current?.PreviewFontSize ?? FontCatalog.FallbackSize);
+
+        protected override void SetValue(string value)
         {
-            try
+            if (CodeShotToolWindowControl.Current is CodeShotToolWindowControl control && FontCatalog.TryParseSize(value, out var size))
             {
-                if (e is not OleMenuCmdEventArgs args)
-                {
-                    return;
-                }
-
-                var control = CodeShotToolWindowControl.Current;
-
-                if (args.OutValue != IntPtr.Zero)
-                {
-                    var current = FontCatalog.FormatSize(control?.PreviewFontSize ?? FontCatalog.FallbackSize);
-                    Marshal.GetNativeVariantForObject(current, args.OutValue);
-                }
-                else if (control is not null && FontCatalog.TryParseSize(args.InValue?.ToString(), out var size))
-                {
-                    control.PreviewFontSize = size;
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = ex.LogAsync();
+                control.PreviewFontSize = size;
             }
         }
+    }
 
-        private static void OnFontSizeList(object sender, EventArgs e)
-        {
-            try
-            {
-                if (e is OleMenuCmdEventArgs args && args.OutValue != IntPtr.Zero)
-                {
-                    var sizes = FontCatalog.Sizes.Select(FontCatalog.FormatSize).ToArray();
-                    Marshal.GetNativeVariantForObject(sizes, args.OutValue);
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = ex.LogAsync();
-            }
-        }
+    [Command(PackageIds.FontSizeComboList)]
+    internal sealed class FontSizeComboListCommand : BaseComboCommand<FontSizeComboListCommand>
+    {
+        // The list provider must stay enabled or the drop-down cannot be populated.
+        protected override bool RequiresToolWindow => false;
+
+        protected override object? GetValue() => FontCatalog.Sizes.Select(FontCatalog.FormatSize).ToArray();
     }
 }
