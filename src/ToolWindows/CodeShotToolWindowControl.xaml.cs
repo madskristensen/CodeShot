@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -26,6 +27,7 @@ namespace CodeShot.ToolWindows
 
         private readonly DispatcherTimer _refreshTimer;
         private string _selectedCode = string.Empty;
+        private int _selectedLineCount;
         private IReadOnlyList<Inline>? _classifiedInlines;
         private IWpfTextView? _trackedTextView;
         private bool _isRefreshingSelection;
@@ -277,6 +279,7 @@ namespace CodeShot.ToolWindows
             }
 
             _selectedCode = string.Join(Environment.NewLine, selectedSpans.Select(span => span.GetText()));
+            _selectedLineCount = selectedSpans.Count;
             _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
 
             var documentName = GetDocumentName(textView);
@@ -300,6 +303,7 @@ namespace CodeShot.ToolWindows
         private void ClearSelectionPreview()
         {
             _selectedCode = string.Empty;
+            _selectedLineCount = 0;
             _classifiedInlines = null;
             TitleText.Text = "No selection";
             StatusText.Text = "Select code in the editor to update the preview.";
@@ -313,15 +317,7 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            var normalized = NormalizeLineEndings(_selectedCode);
-            var lines = normalized.Split(new[] { '\n' }, StringSplitOptions.None);
-
-            if (lines.Length > 0 && lines[lines.Length - 1].Length == 0)
-            {
-                lines = lines.Take(lines.Length - 1).ToArray();
-            }
-
-            if (lines.Length == 0)
+            if (_selectedLineCount == 0)
             {
                 SetPreviewPlainText(string.Empty);
                 LineNumbersText.Text = string.Empty;
@@ -335,16 +331,14 @@ namespace CodeShot.ToolWindows
             }
             else
             {
-                SetPreviewPlainText(string.Join(Environment.NewLine, lines));
+                SetPreviewPlainText(_selectedCode);
             }
 
             ApplyFontSettings();
 
             if (_showLineNumbers)
             {
-                var width = lines.Length.ToString().Length;
-                var numberedLines = lines.Select((_, index) => (index + 1).ToString().PadLeft(width));
-                LineNumbersText.Text = string.Join(Environment.NewLine, numberedLines);
+                LineNumbersText.Text = BuildLineNumbers(_selectedLineCount);
                 LineNumbersText.Visibility = Visibility.Visible;
                 return;
             }
@@ -385,6 +379,24 @@ namespace CodeShot.ToolWindows
             renderTarget.Render(drawingVisual);
             renderTarget.Freeze();
             return renderTarget;
+        }
+
+        private static string BuildLineNumbers(int lineCount)
+        {
+            var width = lineCount.ToString().Length;
+            var builder = new StringBuilder(lineCount * (width + Environment.NewLine.Length));
+
+            for (var number = 1; number <= lineCount; number++)
+            {
+                if (number > 1)
+                {
+                    builder.Append(Environment.NewLine);
+                }
+
+                builder.Append(number.ToString().PadLeft(width));
+            }
+
+            return builder.ToString();
         }
 
         private static string NormalizeLineEndings(string value)
@@ -500,15 +512,21 @@ namespace CodeShot.ToolWindows
                     continue;
                 }
 
-                var text = snapshot.GetText(start, end - start);
-                var offset = text.Length - text.TrimStart().Length;
+                // Scanning the snapshot directly avoids allocating two strings per line just to
+                // measure how far the first non-whitespace character sits from the line start.
+                var contentStart = start;
 
-                if (offset == text.Length)
+                while (contentStart < end && char.IsWhiteSpace(snapshot[contentStart]))
+                {
+                    contentStart++;
+                }
+
+                if (contentStart == end)
                 {
                     continue;
                 }
 
-                indentation = Math.Min(indentation, start - line.Start.Position + offset);
+                indentation = Math.Min(indentation, contentStart - line.Start.Position);
             }
 
             if (indentation == int.MaxValue)
