@@ -575,9 +575,15 @@ namespace CodeShot.ToolWindows
 
             var inlines = new List<Inline>();
 
+            // Classifying each line separately means one service call per line, so the whole
+            // selection is classified once and the ordered result is sliced per line.
+            var enclosingSpan = new SnapshotSpan(selectedSpans[0].Start, selectedSpans[selectedSpans.Count - 1].End);
+            var classificationSpans = classifier.GetClassificationSpans(enclosingSpan);
+            var classificationIndex = 0;
+
             for (var i = 0; i < selectedSpans.Count; i++)
             {
-                AppendClassifiedSpanRuns(inlines, classifier, formatMap, selectedSpans[i], defaultForeground, defaultBackground);
+                AppendClassifiedSpanRuns(inlines, classificationSpans, ref classificationIndex, formatMap, selectedSpans[i], defaultForeground, defaultBackground);
                 if (i < selectedSpans.Count - 1)
                 {
                     inlines.Add(new LineBreak());
@@ -599,25 +605,40 @@ namespace CodeShot.ToolWindows
 
         private static void AppendClassifiedSpanRuns(
             List<Inline> inlines,
-            IClassifier classifier,
+            IList<ClassificationSpan> classificationSpans,
+            ref int classificationIndex,
             IClassificationFormatMap formatMap,
             SnapshotSpan selectedSpan,
             Brush? defaultForeground,
             Brush? defaultBackground)
         {
-            var classificationSpans = classifier.GetClassificationSpans(selectedSpan);
             var currentPosition = selectedSpan.Start;
 
-            foreach (var classificationSpan in classificationSpans)
+            // The spans are ordered, so everything that ended before this line can be skipped for good.
+            while (classificationIndex < classificationSpans.Count
+                && classificationSpans[classificationIndex].Span.End <= currentPosition)
             {
-                if (classificationSpan.Span.Start < currentPosition)
+                classificationIndex++;
+            }
+
+            for (var i = classificationIndex; i < classificationSpans.Count; i++)
+            {
+                var classificationSpan = classificationSpans[i];
+
+                if (classificationSpan.Span.Start >= selectedSpan.End)
+                {
+                    break;
+                }
+
+                // A classification can start before or end after the line, for example a block comment.
+                if (classificationSpan.Span.Overlap(selectedSpan) is not SnapshotSpan overlap)
                 {
                     continue;
                 }
 
-                if (classificationSpan.Span.Start > currentPosition)
+                if (overlap.Start > currentPosition)
                 {
-                    var gapSpan = new SnapshotSpan(currentPosition, classificationSpan.Span.Start);
+                    var gapSpan = new SnapshotSpan(currentPosition, overlap.Start);
                     AppendText(inlines, gapSpan.GetText(), defaultForeground, null);
                 }
 
@@ -627,8 +648,8 @@ namespace CodeShot.ToolWindows
                     ? null
                     : textProperties.BackgroundBrush;
 
-                AppendText(inlines, classificationSpan.Span.GetText(), foreground, background);
-                currentPosition = classificationSpan.Span.End;
+                AppendText(inlines, overlap.GetText(), foreground, background);
+                currentPosition = overlap.End;
             }
 
             if (currentPosition < selectedSpan.End)
