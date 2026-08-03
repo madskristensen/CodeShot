@@ -6,6 +6,7 @@ namespace CodeShot.ToolWindows
     {
         Rectangle,
         Arrow,
+        Highlight,
         Redaction
     }
 

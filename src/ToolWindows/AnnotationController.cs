@@ -39,6 +39,7 @@ namespace CodeShot.ToolWindows
             {
                 AnnotationMode.Rectangle => Cursors.Cross,
                 AnnotationMode.Arrow => Cursors.Cross,
+                AnnotationMode.Highlight => Cursors.Cross,
                 AnnotationMode.Redact => Cursors.Cross,
                 AnnotationMode.Eraser => Cursors.Hand,
                 _ => Cursors.Arrow
@@ -47,6 +48,7 @@ namespace CodeShot.ToolWindows
             {
                 AnnotationMode.Rectangle => "Rectangle tool active. Drag across the code to draw.",
                 AnnotationMode.Arrow => "Arrow tool active. Drag from the subject toward the point of interest.",
+                AnnotationMode.Highlight => "Highlighter active. Drag across an expression to emphasize it.",
                 AnnotationMode.Redact => "Redact tool active. Drag across sensitive content to cover it.",
                 AnnotationMode.Eraser => "Eraser active. Click an annotation to remove it.",
                 _ => "Select mode active. Click a line to highlight it."
@@ -72,6 +74,7 @@ namespace CodeShot.ToolWindows
             var kind = Mode switch
             {
                 AnnotationMode.Arrow => AnnotationKind.Arrow,
+                AnnotationMode.Highlight => AnnotationKind.Highlight,
                 AnnotationMode.Redact => AnnotationKind.Redaction,
                 _ => AnnotationKind.Rectangle
             };
@@ -122,6 +125,7 @@ namespace CodeShot.ToolWindows
                 _setStatus(kind switch
                 {
                     AnnotationKind.Arrow => "Arrow added.",
+                    AnnotationKind.Highlight => "Highlight added.",
                     AnnotationKind.Redaction => "Redaction added.",
                     _ => "Rectangle added."
                 });
@@ -219,7 +223,12 @@ namespace CodeShot.ToolWindows
             {
                 IsHitTestVisible = false,
                 Opacity = isDraft ? 0.7 : 1,
-                Fill = annotation.Kind == AnnotationKind.Redaction ? Brushes.Black : Brushes.Transparent,
+                Fill = annotation.Kind switch
+                {
+                    AnnotationKind.Redaction => Brushes.Black,
+                    AnnotationKind.Highlight => HighlightBrush,
+                    _ => Brushes.Transparent
+                },
                 Stroke = annotation.Kind == AnnotationKind.Rectangle ? AnnotationBrush : null,
                 StrokeThickness = 3
             };
@@ -275,5 +284,6 @@ namespace CodeShot.ToolWindows
         }
 
         private static Brush AnnotationBrush { get; } = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
+        private static Brush HighlightBrush { get; } = new SolidColorBrush(Color.FromArgb(0x70, 0xFF, 0xEB, 0x3B));
     }
 }
