@@ -70,15 +70,25 @@
                                     </DockPanel>
                                 </Border>
 
-                                <Grid Grid.Row="1" Margin="12,0,12,12">
+                                <Grid x:Name="CodeArea" Grid.Row="1" Margin="12,0,12,12" Background="Transparent">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="12" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
+                                    <!-- The highlight sits under the text and the dimming over it, so the
+                                         code stays legible while the lines around it recede. -->
+                                    <Canvas
+                                        x:Name="HighlightLayer"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="3"
+                                        Panel.ZIndex="0"
+                                        IsHitTestVisible="False" />
+
                                     <TextBlock
                                         Grid.Column="0"
+                                        Panel.ZIndex="1"
                                         x:Name="LineNumbersText"
                                         FontFamily="Consolas"
                                         FontSize="13"
@@ -87,11 +97,19 @@
 
                                     <TextBlock
                                         Grid.Column="2"
+                                        Panel.ZIndex="1"
                                         x:Name="PreviewText"
                                         FontFamily="Consolas"
                                         FontSize="13"
                                         TextWrapping="NoWrap"
                                         VerticalAlignment="Top" />
+
+                                    <Canvas
+                                        x:Name="DimLayer"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="3"
+                                        Panel.ZIndex="2"
+                                        IsHitTestVisible="False" />
                                 </Grid>
                             </Grid>
                         </Border>

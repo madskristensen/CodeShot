@@ -142,6 +142,18 @@
         </Strings>
       </Button>
 
+      <Button guid="CodeShot" id="ClearHighlightsCommand" priority="0x0500" type="Button">
+        <Parent guid="CodeShot" id="OptionsMenuGroup" />
+        <Icon guid="ImageCatalogGuid" id="ClearWindowContent" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Clear Line Highlights</ButtonText>
+          <ToolTipText>Remove all line highlights from the preview</ToolTipText>
+          <LocCanonicalName>.CodeShot.ClearHighlights</LocCanonicalName>
+        </Strings>
+      </Button>
+
       <Button guid="CodeShot" id="OpenOptionsCommand" priority="0x0100" type="Button">
         <Parent guid="CodeShot" id="OptionsMenuSettingsGroup" />
         <Icon guid="ImageCatalogGuid" id="Settings" />
@@ -208,6 +220,7 @@
       <IDSymbol name="ShowTitleBarCommand" value="0x0150" />
       <IDSymbol name="UseRealLineNumbersCommand" value="0x0190" />
       <IDSymbol name="KeepIndentationCommand" value="0x01A0" />
+      <IDSymbol name="ClearHighlightsCommand" value="0x01B0" />
       <IDSymbol name="OpenOptionsCommand" value="0x0180" />
 
       <IDSymbol name="FontFamilyCombo" value="0x0160" />

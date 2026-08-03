@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
@@ -31,6 +32,7 @@ namespace CodeShot.ToolWindows
         private const int ShadowMinimumPadding = 12;
 
         private readonly DispatcherTimer _refreshTimer;
+        private readonly HashSet<int> _highlightedLines = new HashSet<int>();
         private string _selectedCode = string.Empty;
         private int _selectedLineCount;
         private IReadOnlyList<Inline>? _classifiedInlines;
@@ -44,6 +46,8 @@ namespace CodeShot.ToolWindows
         private bool _showTitleBar = true;
         private bool _keepOriginalIndentation;
         private string _windowTitleTemplate = "{fileName}";
+        private Brush _highlightBrush = Brushes.Transparent;
+        private Brush _dimBrush = Brushes.Transparent;
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
         private double _exportScale = 2d;
@@ -63,6 +67,8 @@ namespace CodeShot.ToolWindows
                 Interval = SelectionRefreshDelay
             };
             _refreshTimer.Tick += OnRefreshTimerTick;
+            CodeArea.PreviewMouseLeftButtonDown += OnCodeAreaMouseDown;
+            CodeArea.SizeChanged += OnCodeAreaSizeChanged;
             ApplyOptions(options);
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
@@ -204,6 +210,8 @@ namespace CodeShot.ToolWindows
             General.Saved -= OnOptionsSaved;
             VS.Events.WindowEvents.ActiveFrameChanged -= OnActiveFrameChanged;
             _refreshTimer.Stop();
+            CodeArea.PreviewMouseLeftButtonDown -= OnCodeAreaMouseDown;
+            CodeArea.SizeChanged -= OnCodeAreaSizeChanged;
             DetachFromSelectionChanges();
         }
 
@@ -364,6 +372,10 @@ namespace CodeShot.ToolWindows
             _firstSelectedLineNumber = selectedSpans[0].Snapshot.GetLineNumberFromPosition(selectedSpans[0].Start) + 1;
             _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
 
+            // The highlights are line indexes into the previous selection, so they no longer
+            // point at the same code once a new selection has been read.
+            _highlightedLines.Clear();
+
             TitleText.Text = BuildTitle(textView);
             StatusText.Text = _classifiedInlines is null
                 ? "Preview updated from current selection (plain text fallback)."
@@ -424,6 +436,7 @@ namespace CodeShot.ToolWindows
             _selectedLineCount = 0;
             _firstSelectedLineNumber = 1;
             _classifiedInlines = null;
+            _highlightedLines.Clear();
             TitleText.Text = "No selection";
             StatusText.Text = "Select code in the editor to update the preview.";
             UpdatePreviewText();
@@ -471,6 +484,7 @@ namespace CodeShot.ToolWindows
             // The capture surface sizes to its content rather than to the viewport, so the whole
             // selection is rendered even when the tool window is too small to show all of it.
             CaptureSurface.UpdateLayout();
+            UpdateHighlightLayers();
 
             if (CaptureSurface.ActualWidth <= 0 || CaptureSurface.ActualHeight <= 0)
             {
@@ -567,6 +581,108 @@ namespace CodeShot.ToolWindows
             MinimizeGlyph.Foreground = glyphBrush;
             MaximizeGlyph.Foreground = glyphBrush;
             CloseGlyph.Foreground = glyphBrush;
+
+            // The highlight lifts a line without recoloring its syntax, and the scrim pushes the
+            // rest back by fading them toward the editor background rather than toward gray.
+            _highlightBrush = new SolidColorBrush(Blend(editorBackground, editorForeground, 0.14));
+            _dimBrush = new SolidColorBrush(editorBackground) { Opacity = 0.62 };
+            UpdateHighlightLayers();
+        }
+
+        // The overlays are sized from the rendered text, so they are rebuilt once layout has settled.
+        private void OnCodeAreaSizeChanged(object sender, SizeChangedEventArgs e)
+            => UpdateHighlightLayers();
+
+        // Clicking a line is the quickest way to point at it and needs no extra toolbar UI.
+        private void OnCodeAreaMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            var lineIndex = GetLineIndexAt(e.GetPosition(PreviewText).Y);
+
+            if (lineIndex < 0)
+            {
+                return;
+            }
+
+            if (_highlightedLines.Remove(lineIndex) == false)
+            {
+                _highlightedLines.Add(lineIndex);
+            }
+
+            UpdateHighlightLayers();
+            StatusText.Text = _highlightedLines.Count == 0
+                ? "Highlights cleared. Click a line to highlight it."
+                : $"Highlighting {_highlightedLines.Count} line(s). Click a line to toggle it.";
+            e.Handled = true;
+        }
+
+        internal bool HasHighlights => _highlightedLines.Count > 0;
+
+        internal void ClearHighlights()
+        {
+            if (_highlightedLines.Count == 0)
+            {
+                return;
+            }
+
+            _highlightedLines.Clear();
+            UpdateHighlightLayers();
+            StatusText.Text = "Highlights cleared.";
+        }
+
+        // The preview is one text block of uniform monospaced lines, so the line height follows
+        // from its rendered height and does not need to be measured per line.
+        private double GetLineHeight()
+            => _selectedLineCount <= 0 || PreviewText.ActualHeight <= 0
+                ? 0
+                : PreviewText.ActualHeight / _selectedLineCount;
+
+        private int GetLineIndexAt(double y)
+        {
+            var lineHeight = GetLineHeight();
+
+            if (lineHeight <= 0 || y < 0)
+            {
+                return -1;
+            }
+
+            var index = (int)(y / lineHeight);
+            return index >= 0 && index < _selectedLineCount ? index : -1;
+        }
+
+        private void UpdateHighlightLayers()
+        {
+            if (HighlightLayer is null || DimLayer is null)
+            {
+                return;
+            }
+
+            HighlightLayer.Children.Clear();
+            DimLayer.Children.Clear();
+
+            var lineHeight = GetLineHeight();
+
+            if (lineHeight <= 0 || _highlightedLines.Count == 0)
+            {
+                return;
+            }
+
+            var width = CodeArea.ActualWidth;
+
+            for (var index = 0; index < _selectedLineCount; index++)
+            {
+                var isHighlighted = _highlightedLines.Contains(index);
+                var layer = isHighlighted ? HighlightLayer : DimLayer;
+
+                var rectangle = new System.Windows.Shapes.Rectangle
+                {
+                    Width = width,
+                    Height = lineHeight,
+                    Fill = isHighlighted ? _highlightBrush : _dimBrush
+                };
+
+                Canvas.SetTop(rectangle, index * lineHeight);
+                layer.Children.Add(rectangle);
+            }
         }
 
         // A transparent surface still has to be hit-testable, otherwise clicks fall through the

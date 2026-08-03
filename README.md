@@ -30,6 +30,14 @@ whitespace on the left. Turn on **Keep Original Indentation** under the
 
 ![Tool window](art/tool-window.png)
 
+## Draw attention to the lines that matter
+
+Click a line in the preview to highlight it, and click it again to remove the
+highlight. As soon as one line is highlighted the rest are dimmed, so the
+screenshot points at the code you are talking about instead of leaving the
+reader to find it. **Clear Line Highlights** under the **Options** gear removes
+them all, and picking a new selection in the editor starts over.
+
 ## Customize the screenshot before exporting
 
 Everything lives on the tool window toolbar:
