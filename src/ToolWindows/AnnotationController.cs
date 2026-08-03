@@ -11,13 +11,14 @@ namespace CodeShot.ToolWindows
     internal sealed class AnnotationController
     {
         private const double MinimumAnnotationSize = 3;
+        private const int HistoryLimit = 100;
 
         private readonly FrameworkElement _surface;
         private readonly Canvas _layer;
         private readonly Action<string> _setStatus;
         private readonly List<CodeAnnotation> _annotations = new List<CodeAnnotation>();
-        private readonly Stack<List<CodeAnnotation>> _undoStates = new Stack<List<CodeAnnotation>>();
-        private readonly Stack<List<CodeAnnotation>> _redoStates = new Stack<List<CodeAnnotation>>();
+        private readonly List<AnnotationChange> _undoHistory = new List<AnnotationChange>();
+        private readonly List<AnnotationChange> _redoHistory = new List<AnnotationChange>();
         private Point? _start;
         private AnnotationKind? _draftKind;
         private FrameworkElement? _draft;
@@ -34,8 +35,8 @@ namespace CodeShot.ToolWindows
         internal AnnotationMode Mode { get; private set; }
         internal bool HasAnnotations => _annotations.Count > 0;
         internal bool HasRedactions => _annotations.Exists(annotation => annotation.Kind == AnnotationKind.Redaction);
-        internal bool CanUndo => _textEditor is not null ? _textEditor.CanUndo : _undoStates.Count > 0;
-        internal bool CanRedo => _textEditor is not null ? _textEditor.CanRedo : _redoStates.Count > 0;
+        internal bool CanUndo => _textEditor is not null ? _textEditor.CanUndo : _undoHistory.Count > 0;
+        internal bool CanRedo => _textEditor is not null ? _textEditor.CanRedo : _redoHistory.Count > 0;
 
         internal bool IsTextEditorInput(object source)
             => _textEditor is not null
@@ -141,8 +142,7 @@ namespace CodeShot.ToolWindows
 
             if (isLargeEnough)
             {
-                RememberUndoState();
-                _annotations.Add(new CodeAnnotation(kind, start, end));
+                AddAnnotation(new CodeAnnotation(kind, start, end));
                 Refresh();
                 _setStatus(kind switch
                 {
@@ -167,7 +167,7 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            RememberUndoState();
+            RecordChange(AnnotationChange.Clear(_annotations));
             CancelDraft();
             _annotations.Clear();
             Refresh();
@@ -179,8 +179,8 @@ namespace CodeShot.ToolWindows
             CancelTextEdit();
             CancelDraft();
             _annotations.Clear();
-            _undoStates.Clear();
-            _redoStates.Clear();
+            _undoHistory.Clear();
+            _redoHistory.Clear();
             Refresh();
         }
 
@@ -202,9 +202,9 @@ namespace CodeShot.ToolWindows
             }
 
             CancelDraft();
-            _redoStates.Push(new List<CodeAnnotation>(_annotations));
-            _annotations.Clear();
-            _annotations.AddRange(_undoStates.Pop());
+            var change = PopLast(_undoHistory);
+            change.Undo(_annotations);
+            _redoHistory.Add(change);
             Refresh();
             _setStatus("Undid annotation change.");
         }
@@ -227,9 +227,9 @@ namespace CodeShot.ToolWindows
             }
 
             CancelDraft();
-            _undoStates.Push(new List<CodeAnnotation>(_annotations));
-            _annotations.Clear();
-            _annotations.AddRange(_redoStates.Pop());
+            var change = PopLast(_redoHistory);
+            change.Redo(_annotations);
+            _undoHistory.Add(change);
             Refresh();
             _setStatus("Redid annotation change.");
         }
@@ -295,8 +295,7 @@ namespace CodeShot.ToolWindows
             editor.Measure(new Size(editor.MaxWidth, double.PositiveInfinity));
             var size = editor.DesiredSize;
             var end = Clamp(new Point(_textPosition.X + size.Width, _textPosition.Y + size.Height));
-            RememberUndoState();
-            _annotations.Add(new CodeAnnotation(AnnotationKind.Text, _textPosition, end, text));
+            AddAnnotation(new CodeAnnotation(AnnotationKind.Text, _textPosition, end, text));
             Refresh();
             _setStatus("Text callout added.");
         }
@@ -388,7 +387,7 @@ namespace CodeShot.ToolWindows
 
                 if (isHit)
                 {
-                    RememberUndoState();
+                    RecordChange(AnnotationChange.Remove(index, annotation));
                     _annotations.RemoveAt(index);
                     Refresh();
                     _setStatus("Annotation removed.");
@@ -421,10 +420,29 @@ namespace CodeShot.ToolWindows
             return (point - closest).Length;
         }
 
-        private void RememberUndoState()
+        private void AddAnnotation(CodeAnnotation annotation)
         {
-            _undoStates.Push(new List<CodeAnnotation>(_annotations));
-            _redoStates.Clear();
+            RecordChange(AnnotationChange.Add(_annotations.Count, annotation));
+            _annotations.Add(annotation);
+        }
+
+        private void RecordChange(AnnotationChange change)
+        {
+            if (_undoHistory.Count == HistoryLimit)
+            {
+                _undoHistory.RemoveAt(0);
+            }
+
+            _undoHistory.Add(change);
+            _redoHistory.Clear();
+        }
+
+        private static AnnotationChange PopLast(List<AnnotationChange> history)
+        {
+            var index = history.Count - 1;
+            var change = history[index];
+            history.RemoveAt(index);
+            return change;
         }
 
         private Point Clamp(Point point)
@@ -546,5 +564,67 @@ namespace CodeShot.ToolWindows
         private static Brush AnnotationBrush { get; } = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
         private static Brush HighlightBrush { get; } = new SolidColorBrush(Color.FromArgb(0x70, 0xFF, 0xEB, 0x3B));
         private static Brush CalloutBackgroundBrush { get; } = new SolidColorBrush(Color.FromRgb(0xFF, 0xF8, 0xE1));
+
+        private sealed class AnnotationChange
+        {
+            private readonly AnnotationChangeKind _kind;
+            private readonly int _index;
+            private readonly IReadOnlyList<CodeAnnotation> _annotations;
+
+            private AnnotationChange(AnnotationChangeKind kind, int index, IReadOnlyList<CodeAnnotation> annotations)
+            {
+                _kind = kind;
+                _index = index;
+                _annotations = annotations;
+            }
+
+            internal static AnnotationChange Add(int index, CodeAnnotation annotation)
+                => new AnnotationChange(AnnotationChangeKind.Add, index, new[] { annotation });
+
+            internal static AnnotationChange Remove(int index, CodeAnnotation annotation)
+                => new AnnotationChange(AnnotationChangeKind.Remove, index, new[] { annotation });
+
+            internal static AnnotationChange Clear(IReadOnlyList<CodeAnnotation> annotations)
+                => new AnnotationChange(AnnotationChangeKind.Clear, 0, new List<CodeAnnotation>(annotations));
+
+            internal void Undo(List<CodeAnnotation> annotations)
+            {
+                switch (_kind)
+                {
+                    case AnnotationChangeKind.Add:
+                        annotations.RemoveAt(_index);
+                        break;
+                    case AnnotationChangeKind.Remove:
+                        annotations.Insert(_index, _annotations[0]);
+                        break;
+                    case AnnotationChangeKind.Clear:
+                        annotations.AddRange(_annotations);
+                        break;
+                }
+            }
+
+            internal void Redo(List<CodeAnnotation> annotations)
+            {
+                switch (_kind)
+                {
+                    case AnnotationChangeKind.Add:
+                        annotations.Insert(_index, _annotations[0]);
+                        break;
+                    case AnnotationChangeKind.Remove:
+                        annotations.RemoveAt(_index);
+                        break;
+                    case AnnotationChangeKind.Clear:
+                        annotations.Clear();
+                        break;
+                }
+            }
+        }
+
+        private enum AnnotationChangeKind
+        {
+            Add,
+            Remove,
+            Clear
+        }
     }
 }
