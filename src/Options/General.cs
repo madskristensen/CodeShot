@@ -7,6 +7,7 @@ namespace CodeShot
     {
         Theme,
         Custom,
+        Gradient,
         Transparent
     }
 
@@ -39,6 +40,13 @@ namespace CodeShot
         [TypeConverter(typeof(FontSizeTypeConverter))]
         public double FontSize { get; set; }
 
+        [Category("Font")]
+        [DisplayName("Line height")]
+        [Description("The height of each line as a multiple of the font size. The default of 1.45 opens the lines up the way a code sample in an article is set, and 1 packs them as tightly as the font allows.")]
+        [DefaultValue(1.45d)]
+        [TypeConverter(typeof(LineHeightTypeConverter))]
+        public double LineHeight { get; set; } = 1.45d;
+
         [Category("Appearance")]
         [DisplayName("Corner radius")]
         [Description("How far the corners of the code window are rounded, in pixels. Set to 0 for square corners.")]
@@ -59,7 +67,7 @@ namespace CodeShot
 
         [Category("Appearance")]
         [DisplayName("Background")]
-        [Description("Theme derives the background from the editor colors, Custom uses the background color below, and Transparent leaves it empty so the screenshot blends into any surface. Transparency is preserved when saving to a PNG file.")]
+        [Description("Theme derives the background from the editor colors, Custom uses the background color below, Gradient blends the two gradient colors below, and Transparent leaves it empty so the screenshot blends into any surface. Transparency is preserved when saving to a PNG file.")]
         [DefaultValue(BackgroundMode.Theme)]
         public BackgroundMode BackgroundMode { get; set; } = BackgroundMode.Theme;
 
@@ -68,6 +76,25 @@ namespace CodeShot
         [Description("The background color used when Background is set to Custom, written as a hex value such as #ABB8C3.")]
         [DefaultValue("#ABB8C3")]
         public string BackgroundColor { get; set; } = "#ABB8C3";
+
+        [Category("Appearance")]
+        [DisplayName("Gradient start color")]
+        [Description("The color the gradient starts from when Background is set to Gradient, written as a hex value such as #6BCBA5.")]
+        [DefaultValue("#6BCBA5")]
+        public string GradientStartColor { get; set; } = "#6BCBA5";
+
+        [Category("Appearance")]
+        [DisplayName("Gradient end color")]
+        [Description("The color the gradient ends at when Background is set to Gradient, written as a hex value such as #CAF4C2.")]
+        [DefaultValue("#CAF4C2")]
+        public string GradientEndColor { get; set; } = "#CAF4C2";
+
+        [Category("Appearance")]
+        [DisplayName("Gradient angle")]
+        [Description("The direction the gradient runs in, in degrees clockwise from left to right. 0 runs across, 90 runs down, and 135 runs diagonally from the top left corner.")]
+        [DefaultValue(135)]
+        [TypeConverter(typeof(GradientAngleTypeConverter))]
+        public int GradientAngle { get; set; } = 135;
 
         [Category("Appearance")]
         [DisplayName("Padding")]
@@ -117,5 +144,23 @@ namespace CodeShot
         [Description("Also place the selected code on the clipboard as plain text. The image is still pasted by apps that accept images, while editors and chat clients that prefer text receive code that can be copied and searched.")]
         [DefaultValue(false)]
         public bool CopyPlainTextWithImage { get; set; }
+
+        [Category("Export")]
+        [DisplayName("Save folder")]
+        [Description("The folder that Save Image As opens in. Leave empty to use the folder from the last save. It also has to be set before screenshots can be saved without prompting.")]
+        [DefaultValue("")]
+        public string SaveFolder { get; set; } = string.Empty;
+
+        [Category("Export")]
+        [DisplayName("File name")]
+        [Description("The file name suggested when saving, without the extension. Use {fileName}, {fileNameWithoutExtension}, {filePath}, {extension}, {language}, {workspace}, {date} and {time} as placeholders.")]
+        [DefaultValue("{fileNameWithoutExtension}")]
+        public string SaveFileNameTemplate { get; set; } = "{fileNameWithoutExtension}";
+
+        [Category("Export")]
+        [DisplayName("Ask where to save")]
+        [Description("Show the save dialog every time. Turn this off to write straight into the save folder above using the file name below, which keeps a dialog out of every capture. An existing file is never overwritten, so a number is added to the name instead.")]
+        [DefaultValue(true)]
+        public bool PromptForSaveLocation { get; set; } = true;
     }
 }

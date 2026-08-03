@@ -64,9 +64,12 @@ opens:
 - Set the **corner radius** of the code window, and turn the **drop shadow** on
   or off to lift the window off the background.
 - Colors follow the Visual Studio editor theme automatically, or pick a custom
-  background color, or make the background fully transparent so the screenshot
-  blends into a slide or a page. Transparency is preserved when saving to a PNG
-  file.
+  background color, or blend two colors into a **gradient** at any angle, or make
+  the background fully transparent so the screenshot blends into a slide or a
+  page. Transparency is preserved when saving to a PNG file.
+- Set the **line height** as a multiple of the font size. The default of 1.45
+  opens the lines up the way a code sample in an article is set, and 1 packs them
+  as tightly as the font allows.
 - Set the **padding** to control the space around the code window, or set it to
   0 to export the code window on its own. The drop shadow is sized from the
   padding, so it always fades out before the edge of the image instead of being
@@ -89,7 +92,13 @@ Export again at any time:
   selected code on the clipboard as plain text as well. Apps that accept images
   still paste the screenshot, while editors and chat clients that prefer text
   receive code that can be copied, searched and read by a screen reader.
-- **Save Image As** to write a `.png` file to disk.
+- **Save Image As** to write a `.png` file to disk. Set a **save folder** and a
+  **file name** under **Tools > Options > CodeShot > General** to control where
+  the file lands and what it is called. The name takes the same placeholders as
+  the window title, plus `{date}` and `{time}`. Turn off **Ask where to save** to
+  skip the dialog entirely and write straight into that folder, which keeps a
+  dialog out of every capture. An existing file is never overwritten, so a number
+  is added to the name instead.
 
 While the CodeShot window has focus, **Ctrl+C** and **Ctrl+S** run those two
 commands. The shortcuts are scoped to that window, so **Edit > Copy** and

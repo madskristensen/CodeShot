@@ -46,10 +46,12 @@ namespace CodeShot.ToolWindows
         private bool _showTitleBar = true;
         private bool _keepOriginalIndentation;
         private string _windowTitleTemplate = "{fileName}";
+        private DocumentTokens _documentTokens = DocumentTokens.Empty;
         private Brush _highlightBrush = Brushes.Transparent;
         private Brush _dimBrush = Brushes.Transparent;
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
+        private double _lineHeightMultiplier = 1.45d;
         private double _exportScale = 2d;
         private int _padding = 10;
         private int _cornerRadius = 10;
@@ -57,7 +59,13 @@ namespace CodeShot.ToolWindows
         private bool _isDarkBackdrop;
         private BackgroundMode _backgroundMode = BackgroundMode.Theme;
         private Color _backgroundColor = Color.FromRgb(0xAB, 0xB8, 0xC3);
+        private Color _gradientStartColor = Color.FromRgb(0x6B, 0xCB, 0xA5);
+        private Color _gradientEndColor = Color.FromRgb(0xCA, 0xF4, 0xC2);
+        private int _gradientAngle = 135;
         private bool _copyPlainTextWithImage;
+        private string _saveFolder = string.Empty;
+        private string _saveFileNameTemplate = "{fileNameWithoutExtension}";
+        private bool _promptForSaveLocation = true;
 
         // The control is created and loaded asynchronously, so the request from the command is held
         // here until whichever refresh comes next has built a preview worth copying.
@@ -303,15 +311,10 @@ namespace CodeShot.ToolWindows
                     return;
                 }
 
-                var dialog = new SaveFileDialog
-                {
-                    Filter = "PNG image (*.png)|*.png",
-                    AddExtension = true,
-                    DefaultExt = ".png",
-                    FileName = "codeshot.png"
-                };
+                var fileName = _documentTokens.ExpandFileName(_saveFileNameTemplate, "codeshot");
+                var folder = GetSaveFolder();
 
-                if (dialog.ShowDialog() != true)
+                if (TryGetSavePath(fileName, folder, out var path) == false)
                 {
                     return;
                 }
@@ -319,15 +322,106 @@ namespace CodeShot.ToolWindows
                 var encoder = new PngBitmapEncoder();
                 encoder.Frames.Add(BitmapFrame.Create(snapshot));
 
-                using var stream = File.Create(dialog.FileName);
-                encoder.Save(stream);
-                StatusText.Text = $"Saved screenshot to '{dialog.FileName}'.";
+                using (var stream = File.Create(path))
+                {
+                    encoder.Save(stream);
+                }
+
+                // The folder is remembered so that the next save starts where the last one landed,
+                // which is what the dialog would have done on its own before it could be skipped.
+                RememberSaveFolder(Path.GetDirectoryName(path));
+                StatusText.Text = $"Saved screenshot to '{path}'.";
             }
             catch (Exception ex)
             {
                 _ = ex.LogAsync();
                 StatusText.Text = "Save failed. Check ActivityLog for details.";
             }
+        }
+
+        private string GetSaveFolder()
+        {
+            if (string.IsNullOrWhiteSpace(_saveFolder))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                return Directory.Exists(_saveFolder) ? _saveFolder : string.Empty;
+            }
+            catch (Exception ex)
+            {
+                // A path that cannot even be tested, such as one on a disconnected share, must not
+                // stop the save, so the dialog takes over from here.
+                _ = ex.LogAsync();
+                return string.Empty;
+            }
+        }
+
+        private bool TryGetSavePath(string fileName, string folder, out string path)
+        {
+            // Saving without asking needs somewhere to put the file, so a missing or unusable folder
+            // falls back to the dialog rather than dropping the image somewhere unexpected.
+            if (_promptForSaveLocation == false && folder.Length > 0)
+            {
+                path = GetUniquePath(folder, fileName);
+                return true;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Filter = "PNG image (*.png)|*.png",
+                AddExtension = true,
+                DefaultExt = ".png",
+                FileName = fileName + ".png"
+            };
+
+            if (folder.Length > 0)
+            {
+                dialog.InitialDirectory = folder;
+            }
+
+            if (dialog.ShowDialog() != true)
+            {
+                path = string.Empty;
+                return false;
+            }
+
+            path = dialog.FileName;
+            return true;
+        }
+
+        // The dialog asks before it replaces a file, and skipping the dialog must not quietly lose
+        // the previous screenshot, so the name is numbered until it is free.
+        private static string GetUniquePath(string folder, string fileName)
+        {
+            var candidate = Path.Combine(folder, fileName + ".png");
+
+            for (var attempt = 2; File.Exists(candidate) && attempt <= 1000; attempt++)
+            {
+                candidate = Path.Combine(folder, $"{fileName} ({attempt}).png");
+            }
+
+            // Giving up on the counter must not fall back to overwriting, so a name that cannot
+            // collide takes over once a thousand screenshots share the same template.
+            if (File.Exists(candidate))
+            {
+                candidate = Path.Combine(folder, $"{fileName} ({Guid.NewGuid():N}).png");
+            }
+
+            return candidate;
+        }
+
+        private void RememberSaveFolder(string? folder)
+        {
+            if (string.IsNullOrEmpty(folder) || string.Equals(_saveFolder, folder, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _saveFolder = folder!;
+            SaveOptions();
         }
 
         private async Task RefreshFromSelectionAsync()
@@ -403,7 +497,8 @@ namespace CodeShot.ToolWindows
             // point at the same code once a new selection has been read.
             _highlightedLines.Clear();
 
-            TitleText.Text = BuildTitle(textView);
+            _documentTokens = CaptureDocumentTokens(textView);
+            TitleText.Text = _documentTokens.ExpandOrDefault(_windowTitleTemplate, "CodeShot");
             StatusText.Text = _classifiedInlines is null
                 ? "Preview updated from current selection (plain text fallback)."
                 : "Preview updated from current selection.";
@@ -437,24 +532,14 @@ namespace CodeShot.ToolWindows
                 : Path.GetFileNameWithoutExtension(solutionFile);
         }
 
-        private string BuildTitle(IWpfTextView textView)
+        private static DocumentTokens CaptureDocumentTokens(IWpfTextView textView)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            var filePath = GetDocumentPath(textView);
-            var fileName = string.IsNullOrEmpty(filePath) ? string.Empty : Path.GetFileName(filePath);
-
-            var title = _windowTitleTemplate
-                .Replace("{fileName}", fileName)
-                .Replace("{fileNameWithoutExtension}", string.IsNullOrEmpty(fileName) ? string.Empty : Path.GetFileNameWithoutExtension(fileName))
-                .Replace("{filePath}", filePath)
-                .Replace("{extension}", string.IsNullOrEmpty(fileName) ? string.Empty : Path.GetExtension(fileName).TrimStart('.'))
-                .Replace("{language}", textView.TextBuffer.ContentType?.DisplayName ?? string.Empty)
-                .Replace("{workspace}", GetSolutionName());
-
-            // A template made only of tokens collapses to separators when the tokens are empty,
-            // so anything that carries no text at all falls back to the extension name.
-            return title.Any(char.IsLetterOrDigit) ? title.Trim() : "CodeShot";
+            return new DocumentTokens(
+                GetDocumentPath(textView),
+                textView.TextBuffer.ContentType?.DisplayName,
+                GetSolutionName());
         }
 
         private void ClearSelectionPreview()
@@ -464,6 +549,7 @@ namespace CodeShot.ToolWindows
             _firstSelectedLineNumber = 1;
             _classifiedInlines = null;
             _highlightedLines.Clear();
+            _documentTokens = DocumentTokens.Empty;
             TitleText.Text = "No selection";
             StatusText.Text = "Select code in the editor to update the preview.";
             UpdatePreviewText();
@@ -611,7 +697,12 @@ namespace CodeShot.ToolWindows
 
             // A black shadow barely registers on a dark backdrop, so how far it is pushed depends
             // on what it falls onto.
-            _isDarkBackdrop = _backgroundMode == BackgroundMode.Custom ? IsDark(_backgroundColor) : isDark;
+            _isDarkBackdrop = _backgroundMode switch
+            {
+                BackgroundMode.Custom => IsDark(_backgroundColor),
+                BackgroundMode.Gradient => IsDark(Blend(_gradientStartColor, _gradientEndColor, 0.5)),
+                _ => isDark
+            };
             ApplyShadow();
 
             PreviewText.Foreground = foreground ?? new SolidColorBrush(editorForeground);
@@ -733,8 +824,28 @@ namespace CodeShot.ToolWindows
             {
                 BackgroundMode.Transparent => Brushes.Transparent,
                 BackgroundMode.Custom => new SolidColorBrush(_backgroundColor),
+                BackgroundMode.Gradient => CreateGradientBrush(_gradientStartColor, _gradientEndColor, _gradientAngle),
                 _ => CreateBackdropBrush(themeBackground)
             };
+
+        // The angle is given in degrees rather than as two points because that is how a gradient is
+        // described everywhere else, and the line is projected onto the unit square so that the
+        // colors reach the corners instead of running out partway across a wide screenshot.
+        private static Brush CreateGradientBrush(Color start, Color end, int angle)
+        {
+            var radians = angle * Math.PI / 180;
+            var dx = Math.Cos(radians);
+            var dy = Math.Sin(radians);
+
+            // Half the span the gradient line covers once it has to span the whole square.
+            var reach = (Math.Abs(dx) + Math.Abs(dy)) / 2;
+
+            return new LinearGradientBrush(
+                start,
+                end,
+                new Point(0.5 - (dx * reach), 0.5 - (dy * reach)),
+                new Point(0.5 + (dx * reach), 0.5 + (dy * reach)));
+        }
 
         // A flat fill behind the window reads as an empty area rather than as a surface, so the
         // themed backdrop gets a barely visible diagonal gradient. A custom color is left exactly
@@ -1096,6 +1207,13 @@ namespace CodeShot.ToolWindows
                 _backgroundMode = options.BackgroundMode;
                 _windowTitleTemplate = string.IsNullOrWhiteSpace(options.WindowTitleTemplate) ? "{fileName}" : options.WindowTitleTemplate;
                 _backgroundColor = ParseColor(options.BackgroundColor, _backgroundColor);
+                _gradientStartColor = ParseColor(options.GradientStartColor, _gradientStartColor);
+                _gradientEndColor = ParseColor(options.GradientEndColor, _gradientEndColor);
+                _gradientAngle = options.GradientAngle;
+                _saveFolder = options.SaveFolder ?? string.Empty;
+                _saveFileNameTemplate = string.IsNullOrWhiteSpace(options.SaveFileNameTemplate) ? "{fileNameWithoutExtension}" : options.SaveFileNameTemplate;
+                _promptForSaveLocation = options.PromptForSaveLocation;
+                _lineHeightMultiplier = ClampLineHeight(options.LineHeight);
                 ApplyWindowControls(options.WindowControls);
                 ApplyShape(options.CornerRadius, options.ShowShadow);
                 ApplyPadding(options.Padding);
@@ -1105,6 +1223,10 @@ namespace CodeShot.ToolWindows
                 ShowLineNumbers = options.ShowLineNumbers;
                 UseRealLineNumbers = options.UseRealLineNumbers;
                 KeepOriginalIndentation = options.KeepOriginalIndentation;
+
+                // The font settings are only reapplied by their own setters, which do nothing when
+                // the font itself has not changed, so a new line height needs its own pass.
+                ApplyFontSettings();
             }
             finally
             {
@@ -1207,6 +1329,11 @@ namespace CodeShot.ToolWindows
         private static double ClampExportScale(double value)
             => value <= 0 ? 1d : Math.Min(8d, value);
 
+        // Below one the lines overlap and above three the code stops reading as a block, and either
+        // way the highlight overlays are sized from the line height and would no longer line up.
+        private static double ClampLineHeight(double value)
+            => value <= 0 ? 1.45d : Math.Min(3d, Math.Max(1d, value));
+
         private void SaveOptions()
         {
             if (_isApplyingOptions)
@@ -1224,6 +1351,7 @@ namespace CodeShot.ToolWindows
                     options.UseRealLineNumbers = _useRealLineNumbers;
                     options.KeepOriginalIndentation = _keepOriginalIndentation;
                     options.ShowTitleBar = _showTitleBar;
+                    options.SaveFolder = _saveFolder;
                     await options.SaveAsync();
                 },
                 "Could not save the CodeShot options.");
@@ -1240,7 +1368,7 @@ namespace CodeShot.ToolWindows
 
             // The default line spacing of a monospaced font is tight enough that a screenshot reads
             // as a wall of text, so the lines are opened up the way a code sample in an article is.
-            var lineHeight = Math.Round(_fontSize * 1.45);
+            var lineHeight = Math.Round(_fontSize * _lineHeightMultiplier);
 
             PreviewText.FontFamily = fontFamily;
             PreviewText.FontSize = _fontSize;
