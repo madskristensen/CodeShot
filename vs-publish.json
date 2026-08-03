@@ -18,7 +18,7 @@
       "targetPath": "art/tool-window.png"
     }
   ],
-  "overview": "readme.md",
+  "overview": "README.md",
   "publisher": "MadsKristensen",
   "repo": "https://github.com/madskristensen/CodeShot"
 }

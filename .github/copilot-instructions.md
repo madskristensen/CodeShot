@@ -37,5 +37,5 @@ ALWAYS use `System.Text.Json` for JSON parsing. NEVER use `Newtonsoft.Json` or a
 
 ## Project-Specific Rules
 
-- When adding or removing a postfix template, update the `IsTemplateEnabled` method in `src/Options/General.cs` - add or remove the corresponding switch case and the matching property. Also update the `readme.md` as needed
+Also update the `README.md` as needed
 - Follow existing project conventions for naming, file layout, and options wiring when modifying templates or related settings
