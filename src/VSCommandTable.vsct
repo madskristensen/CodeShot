@@ -268,6 +268,30 @@
         </Strings>
       </Button>
 
+      <Button guid="CodeShot" id="UndoAnnotationCommand" priority="0x0200" type="Button">
+        <Parent guid="CodeShot" id="AnnotationMenuActionsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Undo" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Undo Annotation</ButtonText>
+          <ToolTipText>Undo the last annotation change</ToolTipText>
+          <LocCanonicalName>.CodeShot.UndoAnnotation</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="RedoAnnotationCommand" priority="0x0300" type="Button">
+        <Parent guid="CodeShot" id="AnnotationMenuActionsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Redo" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Redo Annotation</ButtonText>
+          <ToolTipText>Redo the last undone annotation change</ToolTipText>
+          <LocCanonicalName>.CodeShot.RedoAnnotation</LocCanonicalName>
+        </Strings>
+      </Button>
+
       <Button guid="CodeShot" id="OpenOptionsCommand" priority="0x0100" type="Button">
         <Parent guid="CodeShot" id="OptionsMenuSettingsGroup" />
         <Icon guid="ImageCatalogGuid" id="Settings" />
@@ -312,6 +336,8 @@
          the global Edit.Copy and File.SaveSelectedItems while the CodeShot window has focus. -->
     <KeyBinding guid="CodeShot" id="CopyImageCommand" editor="CodeShotToolWindow" key1="C" mod1="Control" />
     <KeyBinding guid="CodeShot" id="SaveImageCommand" editor="CodeShotToolWindow" key1="S" mod1="Control" />
+    <KeyBinding guid="CodeShot" id="UndoAnnotationCommand" editor="CodeShotToolWindow" key1="Z" mod1="Control" />
+    <KeyBinding guid="CodeShot" id="RedoAnnotationCommand" editor="CodeShotToolWindow" key1="Y" mod1="Control" />
   </KeyBindings>
 
   <Symbols>
@@ -348,6 +374,8 @@
       <IDSymbol name="ArrowAnnotationCommand" value="0x0210" />
       <IDSymbol name="HighlightAnnotationCommand" value="0x0220" />
       <IDSymbol name="TextAnnotationCommand" value="0x0230" />
+      <IDSymbol name="UndoAnnotationCommand" value="0x0240" />
+      <IDSymbol name="RedoAnnotationCommand" value="0x0250" />
       <IDSymbol name="OpenOptionsCommand" value="0x0180" />
 
       <IDSymbol name="FontFamilyCombo" value="0x0160" />

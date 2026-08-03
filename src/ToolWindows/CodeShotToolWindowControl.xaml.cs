@@ -789,6 +789,8 @@ namespace CodeShot.ToolWindows
         internal bool HasPreview => _selectedLineCount > 0;
         internal bool HasHighlights => _highlightedLines.Count > 0;
         internal bool HasAnnotations => _annotationController.HasAnnotations;
+        internal bool CanUndoAnnotation => _annotationController.CanUndo;
+        internal bool CanRedoAnnotation => _annotationController.CanRedo;
         internal AnnotationMode ActiveAnnotationMode => _annotationController.Mode;
 
         internal void SetAnnotationMode(AnnotationMode mode)
@@ -808,6 +810,12 @@ namespace CodeShot.ToolWindows
 
         internal void ClearAnnotations()
             => _annotationController.Clear();
+
+        internal void UndoAnnotation()
+            => _annotationController.Undo();
+
+        internal void RedoAnnotation()
+            => _annotationController.Redo();
 
         // The preview is one text block of uniform monospaced lines, so the line height follows
         // from its rendered height and does not need to be measured per line.

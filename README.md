@@ -48,6 +48,9 @@ redaction block. Choose
 start over. Annotations are part of the exported PNG and reset when the editor
 selection changes so they cannot drift onto different code. When a redaction is
 present, CodeShot does not place the unredacted plain text on the clipboard.
+Press **Ctrl+Z** while the CodeShot window has focus to undo annotation changes
+one at a time, including erasing or clearing annotations. Press **Ctrl+Y** to
+redo an undone change.
 
 ## Customize the screenshot before exporting
 

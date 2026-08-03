@@ -16,6 +16,8 @@ namespace CodeShot.ToolWindows
         private readonly Canvas _layer;
         private readonly Action<string> _setStatus;
         private readonly List<CodeAnnotation> _annotations = new List<CodeAnnotation>();
+        private readonly Stack<List<CodeAnnotation>> _undoStates = new Stack<List<CodeAnnotation>>();
+        private readonly Stack<List<CodeAnnotation>> _redoStates = new Stack<List<CodeAnnotation>>();
         private Point? _start;
         private AnnotationKind? _draftKind;
         private FrameworkElement? _draft;
@@ -32,6 +34,8 @@ namespace CodeShot.ToolWindows
         internal AnnotationMode Mode { get; private set; }
         internal bool HasAnnotations => _annotations.Count > 0;
         internal bool HasRedactions => _annotations.Exists(annotation => annotation.Kind == AnnotationKind.Redaction);
+        internal bool CanUndo => _textEditor is null && _undoStates.Count > 0;
+        internal bool CanRedo => _textEditor is null && _redoStates.Count > 0;
 
         internal void SetMode(AnnotationMode mode)
         {
@@ -132,6 +136,7 @@ namespace CodeShot.ToolWindows
 
             if (isLargeEnough)
             {
+                RememberUndoState();
                 _annotations.Add(new CodeAnnotation(kind, start, end));
                 Refresh();
                 _setStatus(kind switch
@@ -157,7 +162,10 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            Reset();
+            RememberUndoState();
+            CancelDraft();
+            _annotations.Clear();
+            Refresh();
             _setStatus("Annotations cleared.");
         }
 
@@ -166,7 +174,39 @@ namespace CodeShot.ToolWindows
             CancelTextEdit();
             CancelDraft();
             _annotations.Clear();
+            _undoStates.Clear();
+            _redoStates.Clear();
             Refresh();
+        }
+
+        internal void Undo()
+        {
+            if (CanUndo == false)
+            {
+                return;
+            }
+
+            CancelDraft();
+            _redoStates.Push(new List<CodeAnnotation>(_annotations));
+            _annotations.Clear();
+            _annotations.AddRange(_undoStates.Pop());
+            Refresh();
+            _setStatus("Undid annotation change.");
+        }
+
+        internal void Redo()
+        {
+            if (CanRedo == false)
+            {
+                return;
+            }
+
+            CancelDraft();
+            _undoStates.Push(new List<CodeAnnotation>(_annotations));
+            _annotations.Clear();
+            _annotations.AddRange(_redoStates.Pop());
+            Refresh();
+            _setStatus("Redid annotation change.");
         }
 
         internal void Refresh()
@@ -207,6 +247,7 @@ namespace CodeShot.ToolWindows
             editor.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             var size = editor.DesiredSize;
             var end = Clamp(new Point(_textPosition.X + size.Width, _textPosition.Y + size.Height));
+            RememberUndoState();
             _annotations.Add(new CodeAnnotation(AnnotationKind.Text, _textPosition, end, text));
             Refresh();
             _setStatus("Text callout added.");
@@ -295,6 +336,7 @@ namespace CodeShot.ToolWindows
 
                 if (hitBounds.Contains(point))
                 {
+                    RememberUndoState();
                     _annotations.RemoveAt(index);
                     Refresh();
                     _setStatus("Annotation removed.");
@@ -303,6 +345,12 @@ namespace CodeShot.ToolWindows
             }
 
             _setStatus("No annotation at that point.");
+        }
+
+        private void RememberUndoState()
+        {
+            _undoStates.Push(new List<CodeAnnotation>(_annotations));
+            _redoStates.Clear();
         }
 
         private Point Clamp(Point point)
