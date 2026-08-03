@@ -41,6 +41,9 @@ Everything lives on the tool window toolbar:
   standalone sample instead of exposing where it came from in the file. Turn on
   **Real Line Numbers** to number the lines from their position in the file
   instead, which is what you want when pointing at a specific place in the code.
+- Set the **window title** to anything you like. `{fileName}`,
+  `{fileNameWithoutExtension}`, `{filePath}`, `{extension}`, `{language}` and
+  `{workspace}` are replaced with the values from the captured document.
 - Choose the **window controls** drawn in the title bar: the Windows minimize,
   maximize and close glyphs, the three macOS dots, or none at all.
 - Set the **corner radius** of the code window, and turn the **drop shadow** on

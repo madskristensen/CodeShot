@@ -88,6 +88,12 @@ namespace CodeShot
         public bool UseRealLineNumbers { get; set; }
 
         [Category("Appearance")]
+        [DisplayName("Window title")]
+        [Description("The text shown in the title bar. Use {fileName}, {fileNameWithoutExtension}, {filePath}, {extension}, {language} and {workspace} as placeholders.")]
+        [DefaultValue("{fileName}")]
+        public string WindowTitleTemplate { get; set; } = "{fileName}";
+
+        [Category("Appearance")]
         [DisplayName("Keep original indentation")]
         [Description("Keep the leading whitespace of the selection instead of removing the indentation that every selected line has in common.")]
         [DefaultValue(false)]

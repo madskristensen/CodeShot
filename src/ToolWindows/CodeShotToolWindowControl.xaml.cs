@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
@@ -42,6 +43,7 @@ namespace CodeShot.ToolWindows
         private int _firstSelectedLineNumber = 1;
         private bool _showTitleBar = true;
         private bool _keepOriginalIndentation;
+        private string _windowTitleTemplate = "{fileName}";
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
         private double _exportScale = 2d;
@@ -362,8 +364,7 @@ namespace CodeShot.ToolWindows
             _firstSelectedLineNumber = selectedSpans[0].Snapshot.GetLineNumberFromPosition(selectedSpans[0].Start) + 1;
             _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
 
-            var documentName = GetDocumentName(textView);
-            TitleText.Text = string.IsNullOrWhiteSpace(documentName) ? "CodeShot" : documentName;
+            TitleText.Text = BuildTitle(textView);
             StatusText.Text = _classifiedInlines is null
                 ? "Preview updated from current selection (plain text fallback)."
                 : "Preview updated from current selection.";
@@ -373,11 +374,48 @@ namespace CodeShot.ToolWindows
 
         // The name comes from the captured view so it always matches the code in the preview,
         // which DTE.ActiveDocument does not guarantee and which can throw when no document is active.
-        private static string GetDocumentName(IWpfTextView textView)
+        private static string GetDocumentPath(IWpfTextView textView)
         {
             return EditorServices.TextDocuments?.TryGetTextDocument(textView.TextDataModel.DocumentBuffer, out var document) == true
-                ? Path.GetFileName(document.FilePath)
+                ? document.FilePath
                 : string.Empty;
+        }
+
+        private static string GetSolutionName()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (Package.GetGlobalService(typeof(SVsSolution)) is not IVsSolution solution)
+            {
+                return string.Empty;
+            }
+
+            solution.GetSolutionInfo(out var solutionDirectory, out var solutionFile, out _);
+
+            // An open folder has no solution file, so the folder name stands in for the name.
+            return string.IsNullOrEmpty(solutionFile)
+                ? Path.GetFileName(solutionDirectory?.TrimEnd(Path.DirectorySeparatorChar) ?? string.Empty)
+                : Path.GetFileNameWithoutExtension(solutionFile);
+        }
+
+        private string BuildTitle(IWpfTextView textView)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            var filePath = GetDocumentPath(textView);
+            var fileName = string.IsNullOrEmpty(filePath) ? string.Empty : Path.GetFileName(filePath);
+
+            var title = _windowTitleTemplate
+                .Replace("{fileName}", fileName)
+                .Replace("{fileNameWithoutExtension}", string.IsNullOrEmpty(fileName) ? string.Empty : Path.GetFileNameWithoutExtension(fileName))
+                .Replace("{filePath}", filePath)
+                .Replace("{extension}", string.IsNullOrEmpty(fileName) ? string.Empty : Path.GetExtension(fileName).TrimStart('.'))
+                .Replace("{language}", textView.TextBuffer.ContentType?.DisplayName ?? string.Empty)
+                .Replace("{workspace}", GetSolutionName());
+
+            // A template made only of tokens collapses to separators when the tokens are empty,
+            // so anything that carries no text at all falls back to the extension name.
+            return title.Any(char.IsLetterOrDigit) ? title.Trim() : "CodeShot";
         }
 
         private void ClearSelectionPreview()
@@ -888,6 +926,7 @@ namespace CodeShot.ToolWindows
                 _exportScale = ClampExportScale(options.ExportScale);
                 _copyPlainTextWithImage = options.CopyPlainTextWithImage;
                 _backgroundMode = options.BackgroundMode;
+                _windowTitleTemplate = string.IsNullOrWhiteSpace(options.WindowTitleTemplate) ? "{fileName}" : options.WindowTitleTemplate;
                 _backgroundColor = ParseColor(options.BackgroundColor, _backgroundColor);
                 ApplyWindowControls(options.WindowControls);
                 ApplyShape(options.CornerRadius, options.ShowShadow);
