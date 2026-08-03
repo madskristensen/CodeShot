@@ -40,15 +40,20 @@ them all, and picking a new selection in the editor starts over.
 
 ## Customize the screenshot before exporting
 
-Everything lives on the tool window toolbar:
+On the tool window toolbar:
 
 - Pick any monospaced font installed on your machine from the font drop-down.
 - Pick a font size, or type your own.
-- Under the **Options** gear: show or hide line numbers, and show or hide the
-  title bar. Line numbers start at 1 by default, so the snippet reads as a
-  standalone sample instead of exposing where it came from in the file. Turn on
-  **Real Line Numbers** to number the lines from their position in the file
-  instead, which is what you want when pointing at a specific place in the code.
+- Under the **Options** gear: show or hide line numbers, show or hide the title
+  bar, and keep the original indentation. Line numbers start at 1 by default, so
+  the snippet reads as a standalone sample instead of exposing where it came
+  from in the file. Turn on **Real Line Numbers** to number the lines from their
+  position in the file instead, which is what you want when pointing at a
+  specific place in the code.
+
+In **Tools > Options > CodeShot > General**, which is what the gear button
+opens:
+
 - Set the **window title** to anything you like. `{fileName}`,
   `{fileNameWithoutExtension}`, `{filePath}`, `{extension}`, `{language}` and
   `{workspace}` are replaced with the values from the captured document.
@@ -60,18 +65,14 @@ Everything lives on the tool window toolbar:
   background color, or make the background fully transparent so the screenshot
   blends into a slide or a page. Transparency is preserved when saving to a PNG
   file.
-- Set the **padding** in **Tools > Options > CodeShot > General** to control the
-  space around the code window, or set it to 0 to export the code window on its
-  own.
-- Pick an **export scale** in **Tools > Options > CodeShot > General** to control
-  the resolution of the exported image. The default of 2x produces a sharp
-  result, and the output is identical on every machine because the scale is used
-  instead of the monitor DPI.
+- Set the **padding** to control the space around the code window, or set it to
+  0 to export the code window on its own.
+- Pick an **export scale** to control the resolution of the exported image. The
+  default of 2x produces a sharp result, and the output is identical on every
+  machine because the scale is used instead of the monitor DPI.
 
-All of these settings are remembered between sessions and can also be edited in
-**Tools > Options > CodeShot > General**, which is what the gear button opens.
-Leave the font family empty or the font size at 0 to follow the Text Editor
-font.
+All of these settings are remembered between sessions. Leave the font family
+empty or the font size at 0 to follow the Text Editor font.
 
 Then export with one click:
 
