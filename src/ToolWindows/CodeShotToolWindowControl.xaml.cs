@@ -276,6 +276,11 @@ namespace CodeShot.ToolWindows
         {
             try
             {
+                if (_annotationController.CopyText())
+                {
+                    return;
+                }
+
                 var snapshot = RenderSnapshot();
                 if (snapshot is null)
                 {
@@ -742,12 +747,17 @@ namespace CodeShot.ToolWindows
         private void OnCodeAreaSizeChanged(object sender, SizeChangedEventArgs e)
         {
             UpdateHighlightLayers();
-            _annotationController.Refresh();
+            _annotationController.HandleSurfaceSizeChanged();
         }
 
         private void OnCodeAreaMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (_selectedLineCount == 0)
+            {
+                return;
+            }
+
+            if (_annotationController.IsTextEditorInput(e.OriginalSource))
             {
                 return;
             }

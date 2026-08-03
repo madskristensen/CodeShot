@@ -34,8 +34,13 @@ namespace CodeShot.ToolWindows
         internal AnnotationMode Mode { get; private set; }
         internal bool HasAnnotations => _annotations.Count > 0;
         internal bool HasRedactions => _annotations.Exists(annotation => annotation.Kind == AnnotationKind.Redaction);
-        internal bool CanUndo => _textEditor is null && _undoStates.Count > 0;
-        internal bool CanRedo => _textEditor is null && _redoStates.Count > 0;
+        internal bool CanUndo => _textEditor is not null ? _textEditor.CanUndo : _undoStates.Count > 0;
+        internal bool CanRedo => _textEditor is not null ? _textEditor.CanRedo : _redoStates.Count > 0;
+
+        internal bool IsTextEditorInput(object source)
+            => _textEditor is not null
+                && source is DependencyObject dependencyObject
+                && (ReferenceEquals(_textEditor, dependencyObject) || _textEditor.IsAncestorOf(dependencyObject));
 
         internal void SetMode(AnnotationMode mode)
         {
@@ -181,6 +186,16 @@ namespace CodeShot.ToolWindows
 
         internal void Undo()
         {
+            if (_textEditor is not null)
+            {
+                if (_textEditor.CanUndo)
+                {
+                    _textEditor.Undo();
+                }
+
+                return;
+            }
+
             if (CanUndo == false)
             {
                 return;
@@ -196,6 +211,16 @@ namespace CodeShot.ToolWindows
 
         internal void Redo()
         {
+            if (_textEditor is not null)
+            {
+                if (_textEditor.CanRedo)
+                {
+                    _textEditor.Redo();
+                }
+
+                return;
+            }
+
             if (CanRedo == false)
             {
                 return;
@@ -207,6 +232,29 @@ namespace CodeShot.ToolWindows
             _annotations.AddRange(_redoStates.Pop());
             Refresh();
             _setStatus("Redid annotation change.");
+        }
+
+        internal bool CopyText()
+        {
+            if (_textEditor is null)
+            {
+                return false;
+            }
+
+            _textEditor.Copy();
+            return true;
+        }
+
+        internal void HandleSurfaceSizeChanged()
+        {
+            if (_annotations.Count == 0 && _textEditor is null)
+            {
+                Refresh();
+                return;
+            }
+
+            Reset();
+            _setStatus("Annotations cleared because the preview layout changed.");
         }
 
         internal void Refresh()
@@ -244,7 +292,7 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            editor.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            editor.Measure(new Size(editor.MaxWidth, double.PositiveInfinity));
             var size = editor.DesiredSize;
             var end = Clamp(new Point(_textPosition.X + size.Width, _textPosition.Y + size.Height));
             RememberUndoState();
@@ -274,17 +322,19 @@ namespace CodeShot.ToolWindows
         {
             CommitTextEdit();
             _textPosition = position;
+            var maxWidth = Math.Max(40, _surface.ActualWidth - position.X);
             _textEditor = new TextBox
             {
-                MinWidth = 140,
-                MaxWidth = Math.Max(140, _surface.ActualWidth - position.X),
+                MinWidth = Math.Min(140, maxWidth),
+                MaxWidth = maxWidth,
                 Padding = new Thickness(6, 4, 6, 4),
                 Background = CalloutBackgroundBrush,
                 Foreground = Brushes.Black,
                 BorderBrush = AnnotationBrush,
                 BorderThickness = new Thickness(2),
                 FontFamily = new FontFamily("Segoe UI"),
-                FontSize = 13
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap
             };
             _textEditor.KeyDown += OnTextEditorKeyDown;
             _textEditor.LostKeyboardFocus += OnTextEditorLostKeyboardFocus;
@@ -331,10 +381,12 @@ namespace CodeShot.ToolWindows
         {
             for (var index = _annotations.Count - 1; index >= 0; index--)
             {
-                var hitBounds = _annotations[index].Bounds;
-                hitBounds.Inflate(6, 6);
+                var annotation = _annotations[index];
+                var isHit = annotation.Kind == AnnotationKind.Arrow
+                    ? DistanceToSegment(point, annotation.Start, annotation.End) <= 8
+                    : IsInsideInflatedBounds(point, annotation.Bounds);
 
-                if (hitBounds.Contains(point))
+                if (isHit)
                 {
                     RememberUndoState();
                     _annotations.RemoveAt(index);
@@ -345,6 +397,28 @@ namespace CodeShot.ToolWindows
             }
 
             _setStatus("No annotation at that point.");
+        }
+
+        private static bool IsInsideInflatedBounds(Point point, Rect bounds)
+        {
+            bounds.Inflate(6, 6);
+            return bounds.Contains(point);
+        }
+
+        private static double DistanceToSegment(Point point, Point start, Point end)
+        {
+            var segment = end - start;
+            var lengthSquared = segment.LengthSquared;
+
+            if (lengthSquared == 0)
+            {
+                return (point - start).Length;
+            }
+
+            var offset = point - start;
+            var projection = Math.Max(0, Math.Min(1, ((offset.X * segment.X) + (offset.Y * segment.Y)) / lengthSquared));
+            var closest = start + (segment * projection);
+            return (point - closest).Length;
         }
 
         private void RememberUndoState()
@@ -433,8 +507,10 @@ namespace CodeShot.ToolWindows
 
         private static Border CreateTextCallout(CodeAnnotation annotation)
         {
+            var width = Math.Max(1, annotation.Bounds.Width);
             var border = new Border
             {
+                Width = width,
                 Background = CalloutBackgroundBrush,
                 BorderBrush = AnnotationBrush,
                 BorderThickness = new Thickness(2),
@@ -445,7 +521,8 @@ namespace CodeShot.ToolWindows
                     Text = annotation.Text,
                     Foreground = Brushes.Black,
                     FontFamily = new FontFamily("Segoe UI"),
-                    FontSize = 13
+                    FontSize = 13,
+                    TextWrapping = TextWrapping.Wrap
                 }
             };
             PositionElement(border, annotation.Start);
