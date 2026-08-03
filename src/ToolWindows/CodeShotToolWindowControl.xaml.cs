@@ -37,6 +37,7 @@ namespace CodeShot.ToolWindows
         private bool _showTitleBar = true;
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
+        private double _exportScale = 2d;
 
         public CodeShotToolWindowControl(General options)
         {
@@ -380,15 +381,16 @@ namespace CodeShot.ToolWindows
                 return null;
             }
 
-            var dpi = VisualTreeHelper.GetDpi(CaptureSurface);
-            var pixelWidth = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualWidth * dpi.DpiScaleX));
-            var pixelHeight = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualHeight * dpi.DpiScaleY));
+            // The export scale is used instead of the monitor DPI so the same selection produces
+            // the same image on every machine, which the monitor DPI alone does not guarantee.
+            var pixelWidth = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualWidth * _exportScale));
+            var pixelHeight = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualHeight * _exportScale));
 
             var renderTarget = new RenderTargetBitmap(
                 pixelWidth,
                 pixelHeight,
-                96 * dpi.DpiScaleX,
-                96 * dpi.DpiScaleY,
+                96 * _exportScale,
+                96 * _exportScale,
                 PixelFormats.Pbgra32);
 
             var drawingVisual = new DrawingVisual();
@@ -809,6 +811,7 @@ namespace CodeShot.ToolWindows
 
             try
             {
+                _exportScale = ClampExportScale(options.ExportScale);
                 PreviewFontFamily = string.IsNullOrWhiteSpace(options.FontFamily) ? editorFamily : options.FontFamily;
                 PreviewFontSize = options.FontSize <= 0 ? editorSize : options.FontSize;
                 ShowTitleBar = options.ShowTitleBar;
@@ -819,6 +822,9 @@ namespace CodeShot.ToolWindows
                 _isApplyingOptions = false;
             }
         }
+
+        private static double ClampExportScale(double value)
+            => value <= 0 ? 1d : Math.Min(8d, value);
 
         private void SaveOptions()
         {

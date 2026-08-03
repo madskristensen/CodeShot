@@ -39,6 +39,10 @@ Everything lives on the tool window toolbar:
   title bar. Line numbers always start at 1, so the snippet reads as a
   standalone sample instead of exposing where it came from in the file.
 - Colors follow the Visual Studio editor theme automatically.
+- Pick an **export scale** in **Tools > Options > CodeShot > General** to control
+  the resolution of the exported image. The default of 2x produces a sharp
+  result, and the output is identical on every machine because the scale is used
+  instead of the monitor DPI.
 
 All of these settings are remembered between sessions and can also be edited in
 **Tools > Options > CodeShot > General**, which is what the gear button opens.

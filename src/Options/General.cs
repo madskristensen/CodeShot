@@ -36,5 +36,12 @@ namespace CodeShot
         [Description("Show the title bar with the file name at the top of the screenshot.")]
         [DefaultValue(true)]
         public bool ShowTitleBar { get; set; } = true;
+
+        [Category("Export")]
+        [DisplayName("Export scale")]
+        [Description("Resolution multiplier for the exported image. Higher values produce sharper images at a larger pixel size. The result is identical on every monitor regardless of its DPI.")]
+        [DefaultValue(2d)]
+        [TypeConverter(typeof(ExportScaleTypeConverter))]
+        public double ExportScale { get; set; } = 2d;
     }
 }
