@@ -132,6 +132,16 @@
         </Strings>
       </Button>
 
+      <Button guid="CodeShot" id="KeepIndentationCommand" priority="0x0400" type="Button">
+        <Parent guid="CodeShot" id="OptionsMenuGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Keep Original Indentation</ButtonText>
+          <ToolTipText>Keep the leading whitespace of the selection instead of trimming it</ToolTipText>
+          <LocCanonicalName>.CodeShot.KeepIndentation</LocCanonicalName>
+        </Strings>
+      </Button>
+
       <Button guid="CodeShot" id="OpenOptionsCommand" priority="0x0100" type="Button">
         <Parent guid="CodeShot" id="OptionsMenuSettingsGroup" />
         <Icon guid="ImageCatalogGuid" id="Settings" />
@@ -197,6 +207,7 @@
       <IDSymbol name="ShowLineNumbersCommand" value="0x0140" />
       <IDSymbol name="ShowTitleBarCommand" value="0x0150" />
       <IDSymbol name="UseRealLineNumbersCommand" value="0x0190" />
+      <IDSymbol name="KeepIndentationCommand" value="0x01A0" />
       <IDSymbol name="OpenOptionsCommand" value="0x0180" />
 
       <IDSymbol name="FontFamilyCombo" value="0x0160" />

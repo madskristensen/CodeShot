@@ -39,6 +39,7 @@ namespace CodeShot
         public const int ShowLineNumbersCommand = 0x0140;
         public const int ShowTitleBarCommand = 0x0150;
         public const int UseRealLineNumbersCommand = 0x0190;
+        public const int KeepIndentationCommand = 0x01A0;
         public const int OpenOptionsCommand = 0x0180;
         public const int FontFamilyCombo = 0x0160;
         public const int FontFamilyComboList = 0x0161;

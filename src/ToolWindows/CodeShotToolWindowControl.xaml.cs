@@ -41,6 +41,7 @@ namespace CodeShot.ToolWindows
         private bool _useRealLineNumbers;
         private int _firstSelectedLineNumber = 1;
         private bool _showTitleBar = true;
+        private bool _keepOriginalIndentation;
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
         private double _exportScale = 2d;
@@ -96,6 +97,24 @@ namespace CodeShot.ToolWindows
 
                 _useRealLineNumbers = value;
                 UpdatePreviewText();
+                SaveOptions();
+            }
+        }
+
+        internal bool KeepOriginalIndentation
+        {
+            get => _keepOriginalIndentation;
+            set
+            {
+                if (_keepOriginalIndentation == value)
+                {
+                    return;
+                }
+
+                _keepOriginalIndentation = value;
+
+                // The trim decides which spans are captured, so the selection has to be read again.
+                Refresh();
                 SaveOptions();
             }
         }
@@ -330,7 +349,7 @@ namespace CodeShot.ToolWindows
 
             AttachToSelectionChanges(textView);
 
-            var selectedSpans = GetNormalizedSelectionSpans(textView);
+            var selectedSpans = GetNormalizedSelectionSpans(textView, _keepOriginalIndentation);
 
             if (selectedSpans.Count == 0)
             {
@@ -567,7 +586,7 @@ namespace CodeShot.ToolWindows
             return EditorServices.EditorAdapters?.GetWpfTextView(activeVsTextView);
         }
 
-        private static IReadOnlyList<SnapshotSpan> GetNormalizedSelectionSpans(IWpfTextView textView)
+        private static IReadOnlyList<SnapshotSpan> GetNormalizedSelectionSpans(IWpfTextView textView, bool keepOriginalIndentation)
         {
             var selection = textView.Selection;
 
@@ -582,7 +601,7 @@ namespace CodeShot.ToolWindows
             var lastLine = snapshot.GetLineNumberFromPosition(selectionSpan.End);
             var indentation = int.MaxValue;
 
-            for (var lineNumber = firstLine; lineNumber <= lastLine; lineNumber++)
+            for (var lineNumber = firstLine; keepOriginalIndentation == false && lineNumber <= lastLine; lineNumber++)
             {
                 var (line, start, end) = GetSelectedLinePart(snapshot, lineNumber, selectionSpan);
 
@@ -878,6 +897,7 @@ namespace CodeShot.ToolWindows
                 ShowTitleBar = options.ShowTitleBar;
                 ShowLineNumbers = options.ShowLineNumbers;
                 UseRealLineNumbers = options.UseRealLineNumbers;
+                KeepOriginalIndentation = options.KeepOriginalIndentation;
             }
             finally
             {
@@ -971,6 +991,7 @@ namespace CodeShot.ToolWindows
                     options.FontSize = _fontSize;
                     options.ShowLineNumbers = _showLineNumbers;
                     options.UseRealLineNumbers = _useRealLineNumbers;
+                    options.KeepOriginalIndentation = _keepOriginalIndentation;
                     options.ShowTitleBar = _showTitleBar;
                     await options.SaveAsync();
                 },

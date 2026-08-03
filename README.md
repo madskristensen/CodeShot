@@ -25,7 +25,8 @@ Select code in the editor and open **CodeShot**. The preview follows your
 selection and keeps syntax coloring when available, and the toolbar **Refresh**
 button pulls it in again at any time. The common leading indentation is removed
 automatically, so a deeply nested selection is captured without the extra
-whitespace on the left.
+whitespace on the left. Turn on **Keep Original Indentation** under the
+**Options** gear when the indentation is the point of the screenshot.
 
 ![Tool window](art/tool-window.png)
 
