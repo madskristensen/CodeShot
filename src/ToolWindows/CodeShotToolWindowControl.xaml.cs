@@ -37,8 +37,8 @@ namespace CodeShot.ToolWindows
         private string _selectedCode = string.Empty;
         private int _selectedLineCount;
         private IReadOnlyList<Inline>? _classifiedInlines;
-        private IWpfTextView? _previewTextView;
-        private IReadOnlyList<SnapshotSpan> _previewSpans = Array.Empty<SnapshotSpan>();
+        private WeakReference<IWpfTextView>? _previewTextView;
+        private PreviewSpanIdentity[] _previewSpans = Array.Empty<PreviewSpanIdentity>();
         private IWpfTextView? _trackedTextView;
         private bool _isRefreshingSelection;
         private bool _isRefreshPending;
@@ -521,8 +521,8 @@ namespace CodeShot.ToolWindows
             _selectedLineCount = selectedSpans.Count;
             _firstSelectedLineNumber = selectedSpans[0].Snapshot.GetLineNumberFromPosition(selectedSpans[0].Start) + 1;
             _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
-            _previewTextView = textView;
-            _previewSpans = selectedSpans.ToArray();
+            _previewTextView = new WeakReference<IWpfTextView>(textView);
+            _previewSpans = CapturePreviewSpanIdentities(selectedSpans);
 
             // The highlights are line indexes into the previous selection, so they no longer
             // point at the same code once a new selection has been read.
@@ -584,7 +584,7 @@ namespace CodeShot.ToolWindows
             _firstSelectedLineNumber = 1;
             _classifiedInlines = null;
             _previewTextView = null;
-            _previewSpans = Array.Empty<SnapshotSpan>();
+            _previewSpans = Array.Empty<PreviewSpanIdentity>();
             _highlightedLines.Clear();
             _annotationController.Reset();
             _documentTokens = DocumentTokens.Empty;
@@ -595,25 +595,35 @@ namespace CodeShot.ToolWindows
 
         private bool IsPreviewSelectionChanged(IWpfTextView textView, IReadOnlyList<SnapshotSpan> spans)
         {
-            if (ReferenceEquals(_previewTextView, textView) == false || _previewSpans.Count != spans.Count)
+            if (_previewTextView is null
+                || _previewTextView.TryGetTarget(out var previousTextView) == false
+                || ReferenceEquals(previousTextView, textView) == false
+                || _previewSpans.Length != spans.Count)
             {
                 return true;
             }
 
             for (var index = 0; index < spans.Count; index++)
             {
-                var previous = _previewSpans[index];
-                var current = spans[index];
-
-                if (ReferenceEquals(previous.Snapshot, current.Snapshot) == false
-                    || previous.Start.Position != current.Start.Position
-                    || previous.Length != current.Length)
+                if (_previewSpans[index].Matches(spans[index]) == false)
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private static PreviewSpanIdentity[] CapturePreviewSpanIdentities(IReadOnlyList<SnapshotSpan> spans)
+        {
+            var identities = new PreviewSpanIdentity[spans.Count];
+
+            for (var index = 0; index < spans.Count; index++)
+            {
+                identities[index] = new PreviewSpanIdentity(spans[index]);
+            }
+
+            return identities;
         }
 
         private void UpdatePreviewText()
@@ -1507,6 +1517,25 @@ namespace CodeShot.ToolWindows
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 StatusText.Text = userMessage;
             }
+        }
+
+        private readonly struct PreviewSpanIdentity
+        {
+            private readonly int _snapshotVersion;
+            private readonly int _start;
+            private readonly int _length;
+
+            internal PreviewSpanIdentity(SnapshotSpan span)
+            {
+                _snapshotVersion = span.Snapshot.Version.VersionNumber;
+                _start = span.Start.Position;
+                _length = span.Length;
+            }
+
+            internal bool Matches(SnapshotSpan span)
+                => _snapshotVersion == span.Snapshot.Version.VersionNumber
+                    && _start == span.Start.Position
+                    && _length == span.Length;
         }
     }
 }
