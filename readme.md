@@ -50,10 +50,10 @@ Then export with one click:
 - **Copy Image** to send the PNG straight to the clipboard.
 - **Save Image As** to write a `.png` file to disk.
 
-While the CodeShot window has focus, **Ctrl+C** and **Ctrl+S** run those two commands.
-The shortcuts only apply inside that window, so **Edit > Copy** and **File > Save**
-keep working everywhere else. They are listed under the **CodeShot** scope in
-**Tools > Options > Environment > Keyboard** if you want to change them.
+While the CodeShot window has focus, **Ctrl+C** and **Ctrl+S** run those two
+commands. The shortcuts are scoped to that window, so **Edit > Copy** and
+**File > Save** behave as usual everywhere else. Rebind them under the
+**CodeShot** scope in **Tools > Options > Environment > Keyboard**.
 
 ## Fits naturally in Visual Studio
 
