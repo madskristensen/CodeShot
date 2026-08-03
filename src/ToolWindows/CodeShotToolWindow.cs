@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using Microsoft.VisualStudio.Imaging;
+using Microsoft.VisualStudio.Shell.Interop;
 
 namespace CodeShot.ToolWindows
 {
@@ -25,14 +26,27 @@ namespace CodeShot.ToolWindows
         }
 
         // Visual Studio persists the window layout against this GUID, so it has to stay exactly as it
-        // was on the ToolWindowPane that this pane replaced.
-        [Guid("ce9b4700-7154-4196-9957-858230f19734")]
+        // was on the ToolWindowPane that this pane replaced. It doubles as the key binding scope, which
+        // is what makes Ctrl+C and Ctrl+S reach the copy and save commands only while this window is
+        // the active one.
+        [Guid(PackageGuids.CodeShotToolWindowString)]
         internal sealed class Pane : ToolWindowPane
         {
             public Pane()
             {
                 BitmapImageMoniker = KnownMonikers.Camera;
                 ToolBar = new CommandID(PackageGuids.CodeShot, PackageIds.CodeShotToolbar);
+            }
+
+            public override void OnToolWindowCreated()
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                base.OnToolWindowCreated();
+
+                // The shell already derives the command UI context from the persistence GUID, but the
+                // key bindings silently do nothing if it ever does not, so set it explicitly.
+                Guid commandUI = PackageGuids.CodeShotToolWindow;
+                ((IVsWindowFrame)Frame).SetGuidProperty((int)__VSFPROPID.VSFPROPID_CmdUIGuid, ref commandUI);
             }
         }
     }

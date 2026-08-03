@@ -161,6 +161,11 @@
 
   <KeyBindings>
     <KeyBinding guid="CodeShot" id="ShowCodeShotWindowCommand" editor="guidVSStd97" key1="P" mod1="Control Shift" />
+
+    <!-- The editor attribute is the command UI context of the active window, so these two only beat
+         the global Edit.Copy and File.SaveSelectedItems while the CodeShot window has focus. -->
+    <KeyBinding guid="CodeShot" id="CopyImageCommand" editor="CodeShotToolWindow" key1="C" mod1="Control" />
+    <KeyBinding guid="CodeShot" id="SaveImageCommand" editor="CodeShotToolWindow" key1="S" mod1="Control" />
   </KeyBindings>
 
   <Symbols>
@@ -188,5 +193,8 @@
       <IDSymbol name="FontSizeCombo" value="0x0170" />
       <IDSymbol name="FontSizeComboList" value="0x0171" />
     </GuidSymbol>
+
+    <!-- The tool window's persistence GUID, which is also its key binding scope. -->
+    <GuidSymbol name="CodeShotToolWindow" value="{ce9b4700-7154-4196-9957-858230f19734}" />
   </Symbols>
 </CommandTable>

@@ -15,6 +15,8 @@ namespace CodeShot
     {
         public const string CodeShotString = "a7a7b4b8-f629-4a80-9156-c3dcaae4256a";
         public static Guid CodeShot = new Guid(CodeShotString);
+        public const string CodeShotToolWindowString = "ce9b4700-7154-4196-9957-858230f19734";
+        public static Guid CodeShotToolWindow = new Guid(CodeShotToolWindowString);
     }
 
     /// <summary>

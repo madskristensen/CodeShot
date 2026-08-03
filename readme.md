@@ -50,6 +50,11 @@ Then export with one click:
 - **Copy Image** to send the PNG straight to the clipboard.
 - **Save Image As** to write a `.png` file to disk.
 
+While the CodeShot window has focus, **Ctrl+C** and **Ctrl+S** run those two commands.
+The shortcuts only apply inside that window, so **Edit > Copy** and **File > Save**
+keep working everywhere else. They are listed under the **CodeShot** scope in
+**Tools > Options > Environment > Keyboard** if you want to change them.
+
 ## Fits naturally in Visual Studio
 
 CodeShot integrates as a standard extension command:
@@ -65,7 +70,7 @@ fast capture workflow while you code.
 1. Install the extension from the [Visual Studio Marketplace][marketplace].
 2. Open a code file and select the lines you want to capture.
 3. Open **CodeShot** from the **Tools** menu or press **Ctrl+Shift+P**.
-4. Click **Copy Image** or **Save Image As** on the toolbar.
+4. Click **Copy Image** or **Save Image As** on the toolbar, or press **Ctrl+C** or **Ctrl+S**.
 
 ## Credits
 
