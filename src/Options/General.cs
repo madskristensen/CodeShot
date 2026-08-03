@@ -43,5 +43,11 @@ namespace CodeShot
         [DefaultValue(2d)]
         [TypeConverter(typeof(ExportScaleTypeConverter))]
         public double ExportScale { get; set; } = 2d;
+
+        [Category("Export")]
+        [DisplayName("Copy plain text with image")]
+        [Description("Also place the selected code on the clipboard as plain text. The image is still pasted by apps that accept images, while editors and chat clients that prefer text receive code that can be copied and searched.")]
+        [DefaultValue(true)]
+        public bool CopyPlainTextWithImage { get; set; } = true;
     }
 }

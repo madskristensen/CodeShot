@@ -38,6 +38,7 @@ namespace CodeShot.ToolWindows
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
         private double _exportScale = 2d;
+        private bool _copyPlainTextWithImage = true;
 
         public CodeShotToolWindowControl(General options)
         {
@@ -201,9 +202,18 @@ namespace CodeShot.ToolWindows
                 var data = new DataObject();
                 data.SetImage(snapshot);
 
+                // Pasting an image loses the code itself, which is the long-standing complaint about
+                // code screenshots. Both formats are offered so the target app can pick what it needs.
+                if (_copyPlainTextWithImage && !string.IsNullOrEmpty(_selectedCode))
+                {
+                    data.SetText(_selectedCode);
+                }
+
                 // Copying the data keeps the image on the clipboard after Visual Studio exits.
                 Clipboard.SetDataObject(data, true);
-                StatusText.Text = "Copied screenshot to clipboard.";
+                StatusText.Text = _copyPlainTextWithImage && !string.IsNullOrEmpty(_selectedCode)
+                    ? "Copied screenshot and code to clipboard."
+                    : "Copied screenshot to clipboard.";
             }
             catch (Exception ex)
             {
@@ -812,6 +822,7 @@ namespace CodeShot.ToolWindows
             try
             {
                 _exportScale = ClampExportScale(options.ExportScale);
+                _copyPlainTextWithImage = options.CopyPlainTextWithImage;
                 PreviewFontFamily = string.IsNullOrWhiteSpace(options.FontFamily) ? editorFamily : options.FontFamily;
                 PreviewFontSize = options.FontSize <= 0 ? editorSize : options.FontSize;
                 ShowTitleBar = options.ShowTitleBar;

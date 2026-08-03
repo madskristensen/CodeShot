@@ -51,7 +51,11 @@ font.
 
 Then export with one click:
 
-- **Copy Image** to send the PNG straight to the clipboard.
+- **Copy Image** to send the PNG straight to the clipboard, together with the
+  selected code as plain text. Apps that accept images paste the screenshot,
+  while editors and chat clients that prefer text receive code that can still be
+  copied, searched and read by a screen reader. Turn this off under
+  **Tools > Options > CodeShot > General** if you only ever want the image.
 - **Save Image As** to write a `.png` file to disk.
 
 While the CodeShot window has focus, **Ctrl+C** and **Ctrl+S** run those two
