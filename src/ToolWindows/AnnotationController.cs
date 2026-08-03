@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 
 namespace CodeShot.ToolWindows
 {
@@ -17,7 +18,7 @@ namespace CodeShot.ToolWindows
         private readonly List<CodeAnnotation> _annotations = new List<CodeAnnotation>();
         private Point? _start;
         private AnnotationKind? _draftKind;
-        private System.Windows.Shapes.Rectangle? _draft;
+        private FrameworkElement? _draft;
 
         internal AnnotationController(FrameworkElement surface, Canvas layer, Action<string> setStatus)
         {
@@ -37,6 +38,7 @@ namespace CodeShot.ToolWindows
             _surface.Cursor = mode switch
             {
                 AnnotationMode.Rectangle => Cursors.Cross,
+                AnnotationMode.Arrow => Cursors.Cross,
                 AnnotationMode.Redact => Cursors.Cross,
                 AnnotationMode.Eraser => Cursors.Hand,
                 _ => Cursors.Arrow
@@ -44,6 +46,7 @@ namespace CodeShot.ToolWindows
             _setStatus(mode switch
             {
                 AnnotationMode.Rectangle => "Rectangle tool active. Drag across the code to draw.",
+                AnnotationMode.Arrow => "Arrow tool active. Drag from the subject toward the point of interest.",
                 AnnotationMode.Redact => "Redact tool active. Drag across sensitive content to cover it.",
                 AnnotationMode.Eraser => "Eraser active. Click an annotation to remove it.",
                 _ => "Select mode active. Click a line to highlight it."
@@ -66,13 +69,16 @@ namespace CodeShot.ToolWindows
                 return true;
             }
 
-            var kind = Mode == AnnotationMode.Redact
-                ? AnnotationKind.Redaction
-                : AnnotationKind.Rectangle;
+            var kind = Mode switch
+            {
+                AnnotationMode.Arrow => AnnotationKind.Arrow,
+                AnnotationMode.Redact => AnnotationKind.Redaction,
+                _ => AnnotationKind.Rectangle
+            };
 
             _start = point;
             _draftKind = kind;
-            _draft = CreateElement(new CodeAnnotation(kind, new Rect(point, point)), true);
+            _draft = CreateElement(new CodeAnnotation(kind, point, point), true);
             _layer.Children.Add(_draft);
             _surface.CaptureMouse();
             e.Handled = true;
@@ -86,7 +92,9 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            SetElementBounds(_draft, GetBounds(_start.Value, Clamp(e.GetPosition(_surface))));
+            _layer.Children.Remove(_draft);
+            _draft = CreateElement(new CodeAnnotation(_draftKind!.Value, _start.Value, Clamp(e.GetPosition(_surface))), true);
+            _layer.Children.Add(_draft);
             e.Handled = true;
         }
 
@@ -97,15 +105,26 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            var bounds = GetBounds(_start.Value, Clamp(e.GetPosition(_surface)));
+            var end = Clamp(e.GetPosition(_surface));
+            var bounds = GetBounds(_start.Value, end);
             var kind = _draftKind.Value;
+            var start = _start.Value;
             CancelDraft();
 
-            if (bounds.Width >= MinimumAnnotationSize && bounds.Height >= MinimumAnnotationSize)
+            var isLargeEnough = kind == AnnotationKind.Arrow
+                ? (end - start).Length >= MinimumAnnotationSize
+                : bounds.Width >= MinimumAnnotationSize && bounds.Height >= MinimumAnnotationSize;
+
+            if (isLargeEnough)
             {
-                _annotations.Add(new CodeAnnotation(kind, bounds));
+                _annotations.Add(new CodeAnnotation(kind, start, end));
                 Refresh();
-                _setStatus(kind == AnnotationKind.Redaction ? "Redaction added." : "Rectangle added.");
+                _setStatus(kind switch
+                {
+                    AnnotationKind.Arrow => "Arrow added.",
+                    AnnotationKind.Redaction => "Redaction added.",
+                    _ => "Rectangle added."
+                });
             }
             else
             {
@@ -164,7 +183,10 @@ namespace CodeShot.ToolWindows
         {
             for (var index = _annotations.Count - 1; index >= 0; index--)
             {
-                if (_annotations[index].Bounds.Contains(point))
+                var hitBounds = _annotations[index].Bounds;
+                hitBounds.Inflate(6, 6);
+
+                if (hitBounds.Contains(point))
                 {
                     _annotations.RemoveAt(index);
                     Refresh();
@@ -186,35 +208,72 @@ namespace CodeShot.ToolWindows
                 new Point(Math.Min(start.X, end.X), Math.Min(start.Y, end.Y)),
                 new Point(Math.Max(start.X, end.X), Math.Max(start.Y, end.Y)));
 
-        private static System.Windows.Shapes.Rectangle CreateElement(CodeAnnotation annotation, bool isDraft)
+        private static FrameworkElement CreateElement(CodeAnnotation annotation, bool isDraft)
         {
-            var rectangle = new System.Windows.Shapes.Rectangle
+            if (annotation.Kind == AnnotationKind.Arrow)
+            {
+                return CreateArrow(annotation, isDraft);
+            }
+
+            var rectangle = new Rectangle
             {
                 IsHitTestVisible = false,
-                Opacity = isDraft ? 0.7 : 1
+                Opacity = isDraft ? 0.7 : 1,
+                Fill = annotation.Kind == AnnotationKind.Redaction ? Brushes.Black : Brushes.Transparent,
+                Stroke = annotation.Kind == AnnotationKind.Rectangle ? AnnotationBrush : null,
+                StrokeThickness = 3
             };
-
-            if (annotation.Kind == AnnotationKind.Redaction)
-            {
-                rectangle.Fill = Brushes.Black;
-            }
-            else
-            {
-                rectangle.Fill = Brushes.Transparent;
-                rectangle.Stroke = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
-                rectangle.StrokeThickness = 3;
-            }
 
             SetElementBounds(rectangle, annotation.Bounds);
             return rectangle;
         }
 
-        private static void SetElementBounds(System.Windows.Shapes.Rectangle rectangle, Rect bounds)
+        private static Path CreateArrow(CodeAnnotation annotation, bool isDraft)
+        {
+            const double headLength = 12;
+            const double headWidth = 7;
+
+            var direction = annotation.End - annotation.Start;
+            if (direction.Length > 0)
+            {
+                direction.Normalize();
+            }
+
+            var perpendicular = new Vector(-direction.Y, direction.X);
+            var headBase = annotation.End - (direction * headLength);
+            var geometry = new StreamGeometry();
+
+            using (var context = geometry.Open())
+            {
+                context.BeginFigure(annotation.Start, false, false);
+                context.LineTo(annotation.End, true, false);
+                context.BeginFigure(annotation.End, true, true);
+                context.LineTo(headBase + (perpendicular * headWidth), true, false);
+                context.LineTo(headBase - (perpendicular * headWidth), true, false);
+            }
+
+            geometry.Freeze();
+            return new Path
+            {
+                Data = geometry,
+                Stroke = AnnotationBrush,
+                StrokeThickness = 3,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Fill = AnnotationBrush,
+                IsHitTestVisible = false,
+                Opacity = isDraft ? 0.7 : 1
+            };
+        }
+
+        private static void SetElementBounds(Rectangle rectangle, Rect bounds)
         {
             rectangle.Width = bounds.Width;
             rectangle.Height = bounds.Height;
             Canvas.SetLeft(rectangle, bounds.Left);
             Canvas.SetTop(rectangle, bounds.Top);
         }
+
+        private static Brush AnnotationBrush { get; } = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
     }
 }

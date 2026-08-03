@@ -206,7 +206,17 @@
         </Strings>
       </Button>
 
-      <Button guid="CodeShot" id="RedactAnnotationCommand" priority="0x0300" type="Button">
+      <Button guid="CodeShot" id="ArrowAnnotationCommand" priority="0x0300" type="Button">
+        <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Arrow</ButtonText>
+          <ToolTipText>Draw an arrow toward part of the code</ToolTipText>
+          <LocCanonicalName>.CodeShot.AnnotationArrow</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="RedactAnnotationCommand" priority="0x0400" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
@@ -216,7 +226,7 @@
         </Strings>
       </Button>
 
-      <Button guid="CodeShot" id="EraserAnnotationCommand" priority="0x0400" type="Button">
+      <Button guid="CodeShot" id="EraserAnnotationCommand" priority="0x0500" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
@@ -315,6 +325,7 @@
       <IDSymbol name="RedactAnnotationCommand" value="0x01E0" />
       <IDSymbol name="EraserAnnotationCommand" value="0x01F0" />
       <IDSymbol name="ClearAnnotationsCommand" value="0x0200" />
+      <IDSymbol name="ArrowAnnotationCommand" value="0x0210" />
       <IDSymbol name="OpenOptionsCommand" value="0x0180" />
 
       <IDSymbol name="FontFamilyCombo" value="0x0160" />

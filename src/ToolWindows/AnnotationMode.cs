@@ -4,6 +4,7 @@ namespace CodeShot.ToolWindows
     {
         Select,
         Rectangle,
+        Arrow,
         Redact,
         Eraser
     }

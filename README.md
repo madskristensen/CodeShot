@@ -41,7 +41,7 @@ them all, and picking a new selection in the editor starts over.
 ## Annotate and redact before sharing
 
 Open **Annotate** on the tool window toolbar to draw a rectangle around an
-expression or cover sensitive content with an opaque redaction block. Choose
+expression, point to it with an arrow, or cover sensitive content with an opaque redaction block. Choose
 **Eraser** and click an annotation to remove it, or use **Clear Annotations** to
 start over. Annotations are part of the exported PNG and reset when the editor
 selection changes so they cannot drift onto different code. When a redaction is
