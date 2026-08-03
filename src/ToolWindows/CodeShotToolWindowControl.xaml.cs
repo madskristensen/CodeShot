@@ -470,6 +470,7 @@ namespace CodeShot.ToolWindows
             finally
             {
                 _isRefreshingSelection = false;
+                UpdateCommandStatus();
             }
 
             if (_copyWhenReady)
@@ -484,6 +485,16 @@ namespace CodeShot.ToolWindows
                     await Dispatcher.Yield(DispatcherPriority.Loaded);
                     CopyImage();
                 }
+            }
+        }
+
+        private static void UpdateCommandStatus()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (Package.GetGlobalService(typeof(SVsUIShell)) is IVsUIShell uiShell)
+            {
+                Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(uiShell.UpdateCommandUI(0));
             }
         }
 
