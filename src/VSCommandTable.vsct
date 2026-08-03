@@ -122,6 +122,16 @@
         </Strings>
       </Button>
 
+      <Button guid="CodeShot" id="UseRealLineNumbersCommand" priority="0x0300" type="Button">
+        <Parent guid="CodeShot" id="OptionsMenuGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Real Line Numbers</ButtonText>
+          <ToolTipText>Number the lines from their position in the file instead of from 1</ToolTipText>
+          <LocCanonicalName>.CodeShot.UseRealLineNumbers</LocCanonicalName>
+        </Strings>
+      </Button>
+
       <Button guid="CodeShot" id="OpenOptionsCommand" priority="0x0100" type="Button">
         <Parent guid="CodeShot" id="OptionsMenuSettingsGroup" />
         <Icon guid="ImageCatalogGuid" id="Settings" />
@@ -186,6 +196,7 @@
       <IDSymbol name="SaveImageCommand" value="0x0130" />
       <IDSymbol name="ShowLineNumbersCommand" value="0x0140" />
       <IDSymbol name="ShowTitleBarCommand" value="0x0150" />
+      <IDSymbol name="UseRealLineNumbersCommand" value="0x0190" />
       <IDSymbol name="OpenOptionsCommand" value="0x0180" />
 
       <IDSymbol name="FontFamilyCombo" value="0x0160" />

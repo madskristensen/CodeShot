@@ -34,6 +34,8 @@ namespace CodeShot.ToolWindows
         private bool _isRefreshPending;
         private bool _isApplyingOptions;
         private bool _showLineNumbers = true;
+        private bool _useRealLineNumbers;
+        private int _firstSelectedLineNumber = 1;
         private bool _showTitleBar = true;
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
@@ -68,6 +70,22 @@ namespace CodeShot.ToolWindows
                 }
 
                 _showLineNumbers = value;
+                UpdatePreviewText();
+                SaveOptions();
+            }
+        }
+
+        internal bool UseRealLineNumbers
+        {
+            get => _useRealLineNumbers;
+            set
+            {
+                if (_useRealLineNumbers == value)
+                {
+                    return;
+                }
+
+                _useRealLineNumbers = value;
                 UpdatePreviewText();
                 SaveOptions();
             }
@@ -313,6 +331,7 @@ namespace CodeShot.ToolWindows
 
             _selectedCode = string.Join(Environment.NewLine, selectedSpans.Select(span => span.GetText()));
             _selectedLineCount = selectedSpans.Count;
+            _firstSelectedLineNumber = selectedSpans[0].Snapshot.GetLineNumberFromPosition(selectedSpans[0].Start) + 1;
             _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
 
             var documentName = GetDocumentName(textView);
@@ -337,6 +356,7 @@ namespace CodeShot.ToolWindows
         {
             _selectedCode = string.Empty;
             _selectedLineCount = 0;
+            _firstSelectedLineNumber = 1;
             _classifiedInlines = null;
             TitleText.Text = "No selection";
             StatusText.Text = "Select code in the editor to update the preview.";
@@ -371,7 +391,7 @@ namespace CodeShot.ToolWindows
 
             if (_showLineNumbers)
             {
-                LineNumbersText.Text = BuildLineNumbers(_selectedLineCount);
+                LineNumbersText.Text = BuildLineNumbers(_selectedLineCount, _useRealLineNumbers ? _firstSelectedLineNumber : 1);
                 LineNumbersText.Visibility = Visibility.Visible;
                 return;
             }
@@ -415,14 +435,15 @@ namespace CodeShot.ToolWindows
             return renderTarget;
         }
 
-        private static string BuildLineNumbers(int lineCount)
+        private static string BuildLineNumbers(int lineCount, int firstNumber)
         {
-            var width = lineCount.ToString().Length;
+            var lastNumber = firstNumber + lineCount - 1;
+            var width = lastNumber.ToString().Length;
             var builder = new StringBuilder(lineCount * (width + Environment.NewLine.Length));
 
-            for (var number = 1; number <= lineCount; number++)
+            for (var number = firstNumber; number <= lastNumber; number++)
             {
-                if (number > 1)
+                if (number > firstNumber)
                 {
                     builder.Append(Environment.NewLine);
                 }
@@ -827,6 +848,7 @@ namespace CodeShot.ToolWindows
                 PreviewFontSize = options.FontSize <= 0 ? editorSize : options.FontSize;
                 ShowTitleBar = options.ShowTitleBar;
                 ShowLineNumbers = options.ShowLineNumbers;
+                UseRealLineNumbers = options.UseRealLineNumbers;
             }
             finally
             {
@@ -851,6 +873,7 @@ namespace CodeShot.ToolWindows
                     options.FontFamily = _fontFamilyName;
                     options.FontSize = _fontSize;
                     options.ShowLineNumbers = _showLineNumbers;
+                    options.UseRealLineNumbers = _useRealLineNumbers;
                     options.ShowTitleBar = _showTitleBar;
                     await options.SaveAsync();
                 },

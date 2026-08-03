@@ -36,8 +36,10 @@ Everything lives on the tool window toolbar:
 - Pick any monospaced font installed on your machine from the font drop-down.
 - Pick a font size, or type your own.
 - Under the **Options** gear: show or hide line numbers, and show or hide the
-  title bar. Line numbers always start at 1, so the snippet reads as a
-  standalone sample instead of exposing where it came from in the file.
+  title bar. Line numbers start at 1 by default, so the snippet reads as a
+  standalone sample instead of exposing where it came from in the file. Turn on
+  **Real Line Numbers** to number the lines from their position in the file
+  instead, which is what you want when pointing at a specific place in the code.
 - Colors follow the Visual Studio editor theme automatically.
 - Pick an **export scale** in **Tools > Options > CodeShot > General** to control
   the resolution of the exported image. The default of 2x produces a sharp

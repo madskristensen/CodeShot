@@ -32,6 +32,12 @@ namespace CodeShot
         public bool ShowLineNumbers { get; set; } = true;
 
         [Category("Appearance")]
+        [DisplayName("Real line numbers")]
+        [Description("Number the lines from their position in the file instead of starting at 1.")]
+        [DefaultValue(false)]
+        public bool UseRealLineNumbers { get; set; }
+
+        [Category("Appearance")]
         [DisplayName("Show title bar")]
         [Description("Show the title bar with the file name at the top of the screenshot.")]
         [DefaultValue(true)]
