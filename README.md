@@ -11,6 +11,8 @@
 Download this extension from the [Visual Studio Marketplace][marketplace]
 or get the latest CI build from [Open VSIX Gallery][vsixgallery].
 
+------------
+
 Turn an editor selection into a polished, annotated PNG without leaving Visual
 Studio.
 
