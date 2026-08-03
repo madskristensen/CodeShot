@@ -25,6 +25,17 @@
           <ToolTipText>Screenshot options</ToolTipText>
         </Strings>
       </Menu>
+
+      <Menu guid="CodeShot" id="AnnotationMenu" priority="0x0100" type="MenuController">
+        <Parent guid="CodeShot" id="ToolbarAnnotationGroup" />
+        <Icon guid="ImageCatalogGuid" id="Edit" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>NotInTBList</CommandFlag>
+        <Strings>
+          <ButtonText>Annotate</ButtonText>
+          <ToolTipText>Draw annotations over the code</ToolTipText>
+        </Strings>
+      </Menu>
     </Menus>
 
     <Groups>
@@ -36,12 +47,24 @@
         <Parent guid="CodeShot" id="CodeShotToolbar" />
       </Group>
 
-      <Group guid="CodeShot" id="ToolbarFontGroup" priority="0x0200">
+      <Group guid="CodeShot" id="ToolbarAnnotationGroup" priority="0x0200">
         <Parent guid="CodeShot" id="CodeShotToolbar" />
       </Group>
 
-      <Group guid="CodeShot" id="ToolbarOptionsGroup" priority="0x0300">
+      <Group guid="CodeShot" id="ToolbarFontGroup" priority="0x0300">
         <Parent guid="CodeShot" id="CodeShotToolbar" />
+      </Group>
+
+      <Group guid="CodeShot" id="ToolbarOptionsGroup" priority="0x0400">
+        <Parent guid="CodeShot" id="CodeShotToolbar" />
+      </Group>
+
+      <Group guid="CodeShot" id="AnnotationMenuToolsGroup" priority="0x0100">
+        <Parent guid="CodeShot" id="AnnotationMenu" />
+      </Group>
+
+      <Group guid="CodeShot" id="AnnotationMenuActionsGroup" priority="0x0200">
+        <Parent guid="CodeShot" id="AnnotationMenu" />
       </Group>
 
       <!-- Line numbering has two settings that only make sense together, so they get their own
@@ -160,6 +183,61 @@
         </Strings>
       </Button>
 
+      <Button guid="CodeShot" id="SelectAnnotationCommand" priority="0x0100" type="Button">
+        <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Edit" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <CommandFlag>FixMenuController</CommandFlag>
+        <Strings>
+          <ButtonText>Select / Highlight Lines</ButtonText>
+          <ToolTipText>Click code lines to highlight them</ToolTipText>
+          <LocCanonicalName>.CodeShot.AnnotationSelect</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="RectangleAnnotationCommand" priority="0x0200" type="Button">
+        <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Rectangle</ButtonText>
+          <ToolTipText>Draw an outline around part of the code</ToolTipText>
+          <LocCanonicalName>.CodeShot.AnnotationRectangle</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="RedactAnnotationCommand" priority="0x0300" type="Button">
+        <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Redact</ButtonText>
+          <ToolTipText>Cover sensitive content with an opaque block</ToolTipText>
+          <LocCanonicalName>.CodeShot.AnnotationRedact</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="EraserAnnotationCommand" priority="0x0400" type="Button">
+        <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Eraser</ButtonText>
+          <ToolTipText>Remove an annotation</ToolTipText>
+          <LocCanonicalName>.CodeShot.AnnotationEraser</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="ClearAnnotationsCommand" priority="0x0100" type="Button">
+        <Parent guid="CodeShot" id="AnnotationMenuActionsGroup" />
+        <Icon guid="ImageCatalogGuid" id="ClearWindowContent" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Clear Annotations</ButtonText>
+          <ToolTipText>Remove all annotations from the preview</ToolTipText>
+          <LocCanonicalName>.CodeShot.ClearAnnotations</LocCanonicalName>
+        </Strings>
+      </Button>
+
       <Button guid="CodeShot" id="OpenOptionsCommand" priority="0x0100" type="Button">
         <Parent guid="CodeShot" id="OptionsMenuSettingsGroup" />
         <Icon guid="ImageCatalogGuid" id="Settings" />
@@ -219,6 +297,10 @@
       <IDSymbol name="OptionsMenuGroup" value="0x1050" />
       <IDSymbol name="OptionsMenuSettingsGroup" value="0x1060" />
       <IDSymbol name="OptionsMenuLineNumbersGroup" value="0x1070" />
+      <IDSymbol name="ToolbarAnnotationGroup" value="0x1080" />
+      <IDSymbol name="AnnotationMenuToolsGroup" value="0x1090" />
+      <IDSymbol name="AnnotationMenuActionsGroup" value="0x10A0" />
+      <IDSymbol name="AnnotationMenu" value="0x10B0" />
 
       <IDSymbol name="RefreshPreviewCommand" value="0x0110" />
       <IDSymbol name="CopyImageCommand" value="0x0120" />
@@ -228,6 +310,11 @@
       <IDSymbol name="UseRealLineNumbersCommand" value="0x0190" />
       <IDSymbol name="KeepIndentationCommand" value="0x01A0" />
       <IDSymbol name="ClearHighlightsCommand" value="0x01B0" />
+      <IDSymbol name="SelectAnnotationCommand" value="0x01C0" />
+      <IDSymbol name="RectangleAnnotationCommand" value="0x01D0" />
+      <IDSymbol name="RedactAnnotationCommand" value="0x01E0" />
+      <IDSymbol name="EraserAnnotationCommand" value="0x01F0" />
+      <IDSymbol name="ClearAnnotationsCommand" value="0x0200" />
       <IDSymbol name="OpenOptionsCommand" value="0x0180" />
 
       <IDSymbol name="FontFamilyCombo" value="0x0160" />

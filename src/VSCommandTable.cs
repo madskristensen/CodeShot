@@ -34,6 +34,10 @@ namespace CodeShot
         public const int OptionsMenuGroup = 0x1050;
         public const int OptionsMenuSettingsGroup = 0x1060;
         public const int OptionsMenuLineNumbersGroup = 0x1070;
+        public const int ToolbarAnnotationGroup = 0x1080;
+        public const int AnnotationMenuToolsGroup = 0x1090;
+        public const int AnnotationMenuActionsGroup = 0x10A0;
+        public const int AnnotationMenu = 0x10B0;
         public const int RefreshPreviewCommand = 0x0110;
         public const int CopyImageCommand = 0x0120;
         public const int SaveImageCommand = 0x0130;
@@ -42,6 +46,11 @@ namespace CodeShot
         public const int UseRealLineNumbersCommand = 0x0190;
         public const int KeepIndentationCommand = 0x01A0;
         public const int ClearHighlightsCommand = 0x01B0;
+        public const int SelectAnnotationCommand = 0x01C0;
+        public const int RectangleAnnotationCommand = 0x01D0;
+        public const int RedactAnnotationCommand = 0x01E0;
+        public const int EraserAnnotationCommand = 0x01F0;
+        public const int ClearAnnotationsCommand = 0x0200;
         public const int OpenOptionsCommand = 0x0180;
         public const int FontFamilyCombo = 0x0160;
         public const int FontFamilyComboList = 0x0161;

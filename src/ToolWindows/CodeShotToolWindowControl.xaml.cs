@@ -33,6 +33,7 @@ namespace CodeShot.ToolWindows
 
         private readonly DispatcherTimer _refreshTimer;
         private readonly HashSet<int> _highlightedLines = new HashSet<int>();
+        private readonly AnnotationController _annotationController;
         private string _selectedCode = string.Empty;
         private int _selectedLineCount;
         private IReadOnlyList<Inline>? _classifiedInlines;
@@ -75,12 +76,15 @@ namespace CodeShot.ToolWindows
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             InitializeComponent();
+            _annotationController = new AnnotationController(CodeArea, AnnotationLayer, message => StatusText.Text = message);
             _refreshTimer = new DispatcherTimer(DispatcherPriority.Background)
             {
                 Interval = SelectionRefreshDelay
             };
             _refreshTimer.Tick += OnRefreshTimerTick;
             CodeArea.PreviewMouseLeftButtonDown += OnCodeAreaMouseDown;
+            CodeArea.PreviewMouseMove += OnCodeAreaMouseMove;
+            CodeArea.PreviewMouseLeftButtonUp += OnCodeAreaMouseUp;
             CodeArea.SizeChanged += OnCodeAreaSizeChanged;
             ApplyOptions(options);
             Loaded += OnLoaded;
@@ -224,6 +228,8 @@ namespace CodeShot.ToolWindows
             VS.Events.WindowEvents.ActiveFrameChanged -= OnActiveFrameChanged;
             _refreshTimer.Stop();
             CodeArea.PreviewMouseLeftButtonDown -= OnCodeAreaMouseDown;
+            CodeArea.PreviewMouseMove -= OnCodeAreaMouseMove;
+            CodeArea.PreviewMouseLeftButtonUp -= OnCodeAreaMouseUp;
             CodeArea.SizeChanged -= OnCodeAreaSizeChanged;
             DetachFromSelectionChanges();
         }
@@ -281,17 +287,24 @@ namespace CodeShot.ToolWindows
                 data.SetImage(snapshot);
 
                 // Pasting an image loses the code itself, which is the long-standing complaint about
-                // code screenshots. Both formats are offered so the target app can pick what it needs.
-                if (_copyPlainTextWithImage && !string.IsNullOrEmpty(_selectedCode))
+                // code screenshots. A redaction must also suppress the original text, otherwise an
+                // app that prefers text could receive the sensitive value hidden in the image.
+                var includePlainText = _copyPlainTextWithImage
+                    && _annotationController.HasRedactions == false
+                    && !string.IsNullOrEmpty(_selectedCode);
+
+                if (includePlainText)
                 {
                     data.SetText(_selectedCode);
                 }
 
                 // Copying the data keeps the image on the clipboard after Visual Studio exits.
                 Clipboard.SetDataObject(data, true);
-                StatusText.Text = _copyPlainTextWithImage && !string.IsNullOrEmpty(_selectedCode)
+                StatusText.Text = includePlainText
                     ? "Copied screenshot and code to clipboard."
-                    : "Copied screenshot to clipboard.";
+                    : _copyPlainTextWithImage && _annotationController.HasRedactions
+                        ? "Copied screenshot. Plain text was omitted because the image contains a redaction."
+                        : "Copied screenshot to clipboard.";
             }
             catch (Exception ex)
             {
@@ -496,6 +509,7 @@ namespace CodeShot.ToolWindows
             // The highlights are line indexes into the previous selection, so they no longer
             // point at the same code once a new selection has been read.
             _highlightedLines.Clear();
+            _annotationController.Reset();
 
             _documentTokens = CaptureDocumentTokens(textView);
             TitleText.Text = _documentTokens.ExpandOrDefault(_windowTitleTemplate, "CodeShot");
@@ -549,6 +563,7 @@ namespace CodeShot.ToolWindows
             _firstSelectedLineNumber = 1;
             _classifiedInlines = null;
             _highlightedLines.Clear();
+            _annotationController.Reset();
             _documentTokens = DocumentTokens.Empty;
             TitleText.Text = "No selection";
             StatusText.Text = "Select code in the editor to update the preview.";
@@ -723,10 +738,32 @@ namespace CodeShot.ToolWindows
 
         // The overlays are sized from the rendered text, so they are rebuilt once layout has settled.
         private void OnCodeAreaSizeChanged(object sender, SizeChangedEventArgs e)
-            => UpdateHighlightLayers();
+        {
+            UpdateHighlightLayers();
+            _annotationController.Refresh();
+        }
 
-        // Clicking a line is the quickest way to point at it and needs no extra toolbar UI.
         private void OnCodeAreaMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_selectedLineCount == 0)
+            {
+                return;
+            }
+
+            if (_annotationController.HandleMouseDown(e) == false)
+            {
+                ToggleLineHighlight(e);
+            }
+        }
+
+        private void OnCodeAreaMouseMove(object sender, MouseEventArgs e)
+            => _annotationController.HandleMouseMove(e);
+
+        private void OnCodeAreaMouseUp(object sender, MouseButtonEventArgs e)
+            => _annotationController.HandleMouseUp(e);
+
+        // Clicking a line is the quickest way to point at it when no drawing tool is active.
+        private void ToggleLineHighlight(MouseButtonEventArgs e)
         {
             var lineIndex = GetLineIndexAt(e.GetPosition(PreviewText).Y);
 
@@ -747,7 +784,13 @@ namespace CodeShot.ToolWindows
             e.Handled = true;
         }
 
+        internal bool HasPreview => _selectedLineCount > 0;
         internal bool HasHighlights => _highlightedLines.Count > 0;
+        internal bool HasAnnotations => _annotationController.HasAnnotations;
+        internal AnnotationMode ActiveAnnotationMode => _annotationController.Mode;
+
+        internal void SetAnnotationMode(AnnotationMode mode)
+            => _annotationController.SetMode(mode);
 
         internal void ClearHighlights()
         {
@@ -760,6 +803,9 @@ namespace CodeShot.ToolWindows
             UpdateHighlightLayers();
             StatusText.Text = "Highlights cleared.";
         }
+
+        internal void ClearAnnotations()
+            => _annotationController.Clear();
 
         // The preview is one text block of uniform monospaced lines, so the line height follows
         // from its rendered height and does not need to be measured per line.

@@ -121,6 +121,14 @@
                                     Grid.ColumnSpan="3"
                                     Panel.ZIndex="2"
                                     IsHitTestVisible="False" />
+
+                                <Canvas
+                                    x:Name="AnnotationLayer"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="3"
+                                    Panel.ZIndex="3"
+                                    ClipToBounds="True"
+                                    IsHitTestVisible="False" />
                             </Grid>
                         </Grid>
                     </Border>
