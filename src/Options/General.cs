@@ -40,6 +40,18 @@ namespace CodeShot
         public double FontSize { get; set; }
 
         [Category("Appearance")]
+        [DisplayName("Corner radius")]
+        [Description("How far the corners of the code window are rounded, in pixels. Set to 0 for square corners.")]
+        [DefaultValue(6)]
+        public int CornerRadius { get; set; } = 6;
+
+        [Category("Appearance")]
+        [DisplayName("Drop shadow")]
+        [Description("Draw a soft shadow under the code window so it lifts off the background. The shadow needs padding to be visible, so it is hidden when the padding is too small for it.")]
+        [DefaultValue(true)]
+        public bool ShowShadow { get; set; } = true;
+
+        [Category("Appearance")]
         [DisplayName("Window controls")]
         [Description("The window buttons drawn in the title bar. None shows the file name on its own, MacOs draws the three colored dots, and Windows draws the minimize, maximize and close glyphs.")]
         [DefaultValue(WindowControls.Windows)]

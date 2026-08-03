@@ -15,6 +15,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
@@ -24,6 +25,9 @@ namespace CodeShot.ToolWindows
     {
         // Dragging a selection raises SelectionChanged continuously, so rebuilds are debounced.
         private static readonly TimeSpan SelectionRefreshDelay = TimeSpan.FromMilliseconds(150);
+
+        // Below this padding the shadow has no room to fall and is dropped instead of being clipped.
+        private const int ShadowMinimumPadding = 12;
 
         private readonly DispatcherTimer _refreshTimer;
         private string _selectedCode = string.Empty;
@@ -41,6 +45,8 @@ namespace CodeShot.ToolWindows
         private double _fontSize = FontCatalog.FallbackSize;
         private double _exportScale = 2d;
         private int _padding = 18;
+        private int _cornerRadius = 6;
+        private bool _showShadow = true;
         private BackgroundMode _backgroundMode = BackgroundMode.Theme;
         private Color _backgroundColor = Color.FromRgb(0xAB, 0xB8, 0xC3);
         private bool _copyPlainTextWithImage = true;
@@ -865,6 +871,7 @@ namespace CodeShot.ToolWindows
                 _backgroundMode = options.BackgroundMode;
                 _backgroundColor = ParseColor(options.BackgroundColor, _backgroundColor);
                 ApplyWindowControls(options.WindowControls);
+                ApplyShape(options.CornerRadius, options.ShowShadow);
                 ApplyPadding(options.Padding);
                 PreviewFontFamily = string.IsNullOrWhiteSpace(options.FontFamily) ? editorFamily : options.FontFamily;
                 PreviewFontSize = options.FontSize <= 0 ? editorSize : options.FontSize;
@@ -908,10 +915,42 @@ namespace CodeShot.ToolWindows
             TitleText.TextAlignment = controls == WindowControls.MacOs ? TextAlignment.Center : TextAlignment.Left;
         }
 
+        private void ApplyShape(int cornerRadius, bool showShadow)
+        {
+            _cornerRadius = Math.Max(0, Math.Min(40, cornerRadius));
+            _showShadow = showShadow;
+
+            SnapshotFrame.CornerRadius = new CornerRadius(_cornerRadius);
+            TitleBarBorder.CornerRadius = new CornerRadius(_cornerRadius, _cornerRadius, 0, 0);
+
+            // The outer surface sits behind the frame, so it needs the larger radius of the two
+            // to avoid a square corner peeking out from under a rounded one.
+            CaptureSurface.CornerRadius = new CornerRadius(_cornerRadius == 0 ? 0 : _cornerRadius + 3);
+
+            ApplyShadow();
+        }
+
+        // The shadow is drawn inside the capture surface, so without padding it would be clipped
+        // away and only cost render time.
+        private void ApplyShadow()
+        {
+            SnapshotFrame.Effect = _showShadow && _padding >= ShadowMinimumPadding
+                ? new DropShadowEffect
+                {
+                    BlurRadius = 22,
+                    ShadowDepth = 6,
+                    Direction = 270,
+                    Opacity = 0.45,
+                    Color = Colors.Black
+                }
+                : null;
+        }
+
         private void ApplyPadding(int padding)
         {
             _padding = Math.Max(0, Math.Min(200, padding));
             CaptureSurface.Padding = new Thickness(_padding);
+            ApplyShadow();
         }
 
         private static double ClampExportScale(double value)
