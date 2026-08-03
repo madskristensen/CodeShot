@@ -10,6 +10,13 @@ namespace CodeShot
         Transparent
     }
 
+    public enum WindowControls
+    {
+        None,
+        MacOs,
+        Windows
+    }
+
     internal partial class OptionsProvider
     {
         [ComVisible(true)]
@@ -31,6 +38,12 @@ namespace CodeShot
         [DefaultValue(0d)]
         [TypeConverter(typeof(FontSizeTypeConverter))]
         public double FontSize { get; set; }
+
+        [Category("Appearance")]
+        [DisplayName("Window controls")]
+        [Description("The window buttons drawn in the title bar. None shows the file name on its own, MacOs draws the three colored dots, and Windows draws the minimize, maximize and close glyphs.")]
+        [DefaultValue(WindowControls.Windows)]
+        public WindowControls WindowControls { get; set; } = WindowControls.Windows;
 
         [Category("Appearance")]
         [DisplayName("Background")]

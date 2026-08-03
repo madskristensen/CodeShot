@@ -40,6 +40,8 @@ Everything lives on the tool window toolbar:
   standalone sample instead of exposing where it came from in the file. Turn on
   **Real Line Numbers** to number the lines from their position in the file
   instead, which is what you want when pointing at a specific place in the code.
+- Choose the **window controls** drawn in the title bar: the Windows minimize,
+  maximize and close glyphs, the three macOS dots, or none at all.
 - Colors follow the Visual Studio editor theme automatically, or pick a custom
   background color, or make the background fully transparent so the screenshot
   blends into a slide or a page. Transparency is preserved when saving to a PNG

@@ -499,6 +499,11 @@ namespace CodeShot.ToolWindows
             PreviewText.Foreground = foreground ?? new SolidColorBrush(editorForeground);
             LineNumbersText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.55));
             TitleText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.15));
+
+            var glyphBrush = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.35));
+            MinimizeGlyph.Foreground = glyphBrush;
+            MaximizeGlyph.Foreground = glyphBrush;
+            CloseGlyph.Foreground = glyphBrush;
         }
 
         // A transparent surface still has to be hit-testable, otherwise clicks fall through the
@@ -859,6 +864,7 @@ namespace CodeShot.ToolWindows
                 _copyPlainTextWithImage = options.CopyPlainTextWithImage;
                 _backgroundMode = options.BackgroundMode;
                 _backgroundColor = ParseColor(options.BackgroundColor, _backgroundColor);
+                ApplyWindowControls(options.WindowControls);
                 ApplyPadding(options.Padding);
                 PreviewFontFamily = string.IsNullOrWhiteSpace(options.FontFamily) ? editorFamily : options.FontFamily;
                 PreviewFontSize = options.FontSize <= 0 ? editorSize : options.FontSize;
@@ -890,6 +896,16 @@ namespace CodeShot.ToolWindows
             {
                 return fallback;
             }
+        }
+
+        private void ApplyWindowControls(WindowControls controls)
+        {
+            MacWindowControls.Visibility = controls == WindowControls.MacOs ? Visibility.Visible : Visibility.Collapsed;
+            WindowsWindowControls.Visibility = controls == WindowControls.Windows ? Visibility.Visible : Visibility.Collapsed;
+
+            // The dots sit where a macOS title would push the text off center, so the title is
+            // centered to match, while the other styles keep the file name against the left edge.
+            TitleText.TextAlignment = controls == WindowControls.MacOs ? TextAlignment.Center : TextAlignment.Left;
         }
 
         private void ApplyPadding(int padding)

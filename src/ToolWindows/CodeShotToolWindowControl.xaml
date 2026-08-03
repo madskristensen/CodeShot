@@ -43,6 +43,31 @@
 
                                 <Border x:Name="TitleBarBorder" Grid.Row="0" Margin="0,0,0,10" Padding="12,7" CornerRadius="5,5,0,0">
                                     <DockPanel x:Name="TitleBar" LastChildFill="True">
+                                        <StackPanel
+                                            x:Name="MacWindowControls"
+                                            DockPanel.Dock="Left"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            Margin="0,0,10,0"
+                                            Visibility="Collapsed">
+                                            <Ellipse Width="11" Height="11" Margin="0,0,7,0" Fill="#FF5F57" />
+                                            <Ellipse Width="11" Height="11" Margin="0,0,7,0" Fill="#FEBC2E" />
+                                            <Ellipse Width="11" Height="11" Fill="#28C840" />
+                                        </StackPanel>
+
+                                        <StackPanel
+                                            x:Name="WindowsWindowControls"
+                                            DockPanel.Dock="Right"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            Margin="10,0,0,0"
+                                            Visibility="Collapsed">
+                                            <!-- Segoe MDL2 Assets ships with Windows and carries the real caption glyphs. -->
+                                            <TextBlock x:Name="MinimizeGlyph" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,14,0" Text="&#xE921;" />
+                                            <TextBlock x:Name="MaximizeGlyph" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,14,0" Text="&#xE922;" />
+                                            <TextBlock x:Name="CloseGlyph" FontFamily="Segoe MDL2 Assets" FontSize="10" Text="&#xE8BB;" />
+                                        </StackPanel>
+
                                         <TextBlock x:Name="TitleText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
                                     </DockPanel>
                                 </Border>
