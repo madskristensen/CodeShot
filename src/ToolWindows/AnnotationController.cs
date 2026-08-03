@@ -103,7 +103,7 @@ namespace CodeShot.ToolWindows
 
             _start = point;
             _draftKind = kind;
-            _draft = CreateElement(new CodeAnnotation(kind, point, point), true);
+            _draft = CreateDraftElement(kind, point);
             _layer.Children.Add(_draft);
             _surface.CaptureMouse();
             e.Handled = true;
@@ -117,9 +117,7 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            _layer.Children.Remove(_draft);
-            _draft = CreateElement(new CodeAnnotation(_draftKind!.Value, _start.Value, Clamp(e.GetPosition(_surface))), true);
-            _layer.Children.Add(_draft);
+            UpdateDraftElement(Clamp(e.GetPosition(_surface)));
             e.Handled = true;
         }
 
@@ -455,6 +453,30 @@ namespace CodeShot.ToolWindows
                 new Point(Math.Min(start.X, end.X), Math.Min(start.Y, end.Y)),
                 new Point(Math.Max(start.X, end.X), Math.Max(start.Y, end.Y)));
 
+        private FrameworkElement CreateDraftElement(AnnotationKind kind, Point point)
+        {
+            if (kind == AnnotationKind.Arrow)
+            {
+                var arrow = new DraftArrow(_surface.ActualWidth, _surface.ActualHeight);
+                arrow.Update(point, point);
+                return arrow;
+            }
+
+            return CreateElement(new CodeAnnotation(kind, point, point), true);
+        }
+
+        private void UpdateDraftElement(Point end)
+        {
+            if (_draft is DraftArrow arrow)
+            {
+                arrow.Update(_start!.Value, end);
+            }
+            else if (_draft is Rectangle rectangle)
+            {
+                SetElementBounds(rectangle, GetBounds(_start!.Value, end));
+            }
+        }
+
         private static FrameworkElement CreateElement(CodeAnnotation annotation, bool isDraft)
         {
             if (annotation.Kind == AnnotationKind.Arrow)
@@ -564,6 +586,63 @@ namespace CodeShot.ToolWindows
         private static Brush AnnotationBrush { get; } = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
         private static Brush HighlightBrush { get; } = new SolidColorBrush(Color.FromArgb(0x70, 0xFF, 0xEB, 0x3B));
         private static Brush CalloutBackgroundBrush { get; } = new SolidColorBrush(Color.FromRgb(0xFF, 0xF8, 0xE1));
+
+        private sealed class DraftArrow : Canvas
+        {
+            private const double HeadLength = 12;
+            private const double HeadWidth = 7;
+
+            private readonly Line _shaft;
+            private readonly Polygon _head;
+
+            internal DraftArrow(double width, double height)
+            {
+                Width = width;
+                Height = height;
+                IsHitTestVisible = false;
+                Opacity = 0.7;
+
+                _shaft = new Line
+                {
+                    Stroke = AnnotationBrush,
+                    StrokeThickness = 3,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round
+                };
+                _head = new Polygon
+                {
+                    Fill = AnnotationBrush,
+                    Stroke = AnnotationBrush,
+                    StrokeThickness = 3,
+                    Points = new PointCollection(3)
+                };
+                _head.Points.Add(new Point());
+                _head.Points.Add(new Point());
+                _head.Points.Add(new Point());
+                Children.Add(_shaft);
+                Children.Add(_head);
+            }
+
+            internal void Update(Point start, Point end)
+            {
+                _shaft.X1 = start.X;
+                _shaft.Y1 = start.Y;
+                _shaft.X2 = end.X;
+                _shaft.Y2 = end.Y;
+
+                var direction = end - start;
+                if (direction.Length > 0)
+                {
+                    direction.Normalize();
+                }
+
+                var perpendicular = new Vector(-direction.Y, direction.X);
+                var headBase = end - (direction * HeadLength);
+                _head.Points[0] = end;
+                _head.Points[1] = headBase + (perpendicular * HeadWidth);
+                _head.Points[2] = headBase - (perpendicular * HeadWidth);
+            }
+        }
 
         private sealed class AnnotationChange
         {
