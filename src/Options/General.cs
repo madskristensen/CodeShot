@@ -42,8 +42,8 @@ namespace CodeShot
         [Category("Appearance")]
         [DisplayName("Corner radius")]
         [Description("How far the corners of the code window are rounded, in pixels. Set to 0 for square corners.")]
-        [DefaultValue(6)]
-        public int CornerRadius { get; set; } = 6;
+        [DefaultValue(10)]
+        public int CornerRadius { get; set; } = 10;
 
         [Category("Appearance")]
         [DisplayName("Drop shadow")]
@@ -71,9 +71,9 @@ namespace CodeShot
 
         [Category("Appearance")]
         [DisplayName("Padding")]
-        [Description("The space in pixels between the code window and the edge of the screenshot. Set to 0 to export the code window on its own.")]
-        [DefaultValue(18)]
-        public int Padding { get; set; } = 18;
+        [Description("The space in pixels between the code window and the edge of the screenshot. It also sets how far the drop shadow reaches, so that the shadow always fades out before the edge of the image. Set to 0 to export the code window on its own.")]
+        [DefaultValue(10)]
+        public int Padding { get; set; } = 10;
 
         [Category("Appearance")]
         [DisplayName("Show line numbers")]
@@ -115,7 +115,7 @@ namespace CodeShot
         [Category("Export")]
         [DisplayName("Copy plain text with image")]
         [Description("Also place the selected code on the clipboard as plain text. The image is still pasted by apps that accept images, while editors and chat clients that prefer text receive code that can be copied and searched.")]
-        [DefaultValue(true)]
-        public bool CopyPlainTextWithImage { get; set; } = true;
+        [DefaultValue(false)]
+        public bool CopyPlainTextWithImage { get; set; }
     }
 }

@@ -54,6 +54,8 @@ On the tool window toolbar:
 In **Tools > Options > CodeShot > General**, which is what the gear button
 opens:
 
+![Options](art/options.png)
+
 - Set the **window title** to anything you like. `{fileName}`,
   `{fileNameWithoutExtension}`, `{filePath}`, `{extension}`, `{language}` and
   `{workspace}` are replaced with the values from the captured document.
@@ -66,7 +68,9 @@ opens:
   blends into a slide or a page. Transparency is preserved when saving to a PNG
   file.
 - Set the **padding** to control the space around the code window, or set it to
-  0 to export the code window on its own.
+  0 to export the code window on its own. The drop shadow is sized from the
+  padding, so it always fades out before the edge of the image instead of being
+  cut off there.
 - Pick an **export scale** to control the resolution of the exported image. The
   default of 2x produces a sharp result, and the output is identical on every
   machine because the scale is used instead of the monitor DPI.
@@ -74,19 +78,27 @@ opens:
 All of these settings are remembered between sessions. Leave the font family
 empty or the font size at 0 to follow the Text Editor font.
 
-Then export with one click:
+Opening **CodeShot** already copies the screenshot to the clipboard, so most
+captures are one keystroke and a paste. Changing the selection only updates the
+preview and leaves the clipboard alone.
 
-- **Copy Image** to send the PNG straight to the clipboard, together with the
-  selected code as plain text. Apps that accept images paste the screenshot,
-  while editors and chat clients that prefer text receive code that can still be
-  copied, searched and read by a screen reader. Turn this off under
-  **Tools > Options > CodeShot > General** if you only ever want the image.
+Export again at any time:
+
+- **Copy Image** to send the PNG straight to the clipboard. Turn on **Copy plain
+  text with image** under **Tools > Options > CodeShot > General** to put the
+  selected code on the clipboard as plain text as well. Apps that accept images
+  still paste the screenshot, while editors and chat clients that prefer text
+  receive code that can be copied, searched and read by a screen reader.
 - **Save Image As** to write a `.png` file to disk.
 
 While the CodeShot window has focus, **Ctrl+C** and **Ctrl+S** run those two
 commands. The shortcuts are scoped to that window, so **Edit > Copy** and
 **File > Save** behave as usual everywhere else. Rebind them under the
 **CodeShot** scope in **Tools > Options > Environment > Keyboard**.
+
+**Shift+Esc** closes the CodeShot window when it has focus. That is a built-in
+Visual Studio shortcut that closes any active tool window, so it works the same
+way here as it does everywhere else in the IDE.
 
 ## Fits naturally in Visual Studio
 
@@ -102,8 +114,10 @@ fast capture workflow while you code.
 
 1. Install the extension from the [Visual Studio Marketplace][marketplace].
 2. Open a code file and select the lines you want to capture.
-3. Open **CodeShot** from the **Tools** menu or press **Ctrl+Shift+P**.
-4. Click **Copy Image** or **Save Image As** on the toolbar, or press **Ctrl+C** or **Ctrl+S**.
+3. Open **CodeShot** from the **Tools** menu or press **Ctrl+Shift+P**. The
+   screenshot is on the clipboard, ready to paste.
+4. Adjust the look, then press **Ctrl+C** to copy it again or **Ctrl+S** to save
+   it as a `.png` file.
 
 ## Credits
 

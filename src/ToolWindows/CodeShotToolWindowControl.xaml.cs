@@ -29,7 +29,7 @@ namespace CodeShot.ToolWindows
         private static readonly TimeSpan SelectionRefreshDelay = TimeSpan.FromMilliseconds(150);
 
         // Below this padding the shadow has no room to fall and is dropped instead of being clipped.
-        private const int ShadowMinimumPadding = 12;
+        private const int ShadowMinimumPadding = 5;
 
         private readonly DispatcherTimer _refreshTimer;
         private readonly HashSet<int> _highlightedLines = new HashSet<int>();
@@ -51,12 +51,17 @@ namespace CodeShot.ToolWindows
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
         private double _exportScale = 2d;
-        private int _padding = 18;
-        private int _cornerRadius = 6;
+        private int _padding = 10;
+        private int _cornerRadius = 10;
         private bool _showShadow = true;
+        private bool _isDarkBackdrop;
         private BackgroundMode _backgroundMode = BackgroundMode.Theme;
         private Color _backgroundColor = Color.FromRgb(0xAB, 0xB8, 0xC3);
-        private bool _copyPlainTextWithImage = true;
+        private bool _copyPlainTextWithImage;
+
+        // The control is created and loaded asynchronously, so the request from the command is held
+        // here until whichever refresh comes next has built a preview worth copying.
+        private static bool _copyWhenReady;
 
         public CodeShotToolWindowControl(General options)
         {
@@ -244,6 +249,15 @@ namespace CodeShot.ToolWindows
                 "Could not refresh from the current selection.");
         }
 
+        // Invoking the command asks for a screenshot, not just for a window, so the image lands on
+        // the clipboard without a second click. Selection changes deliberately do not do this,
+        // because silently replacing the clipboard while the user types would be hostile.
+        internal static void CopyWhenReady()
+        {
+            _copyWhenReady = true;
+            Current?.Refresh();
+        }
+
         internal void CopyImage()
         {
             try
@@ -342,6 +356,19 @@ namespace CodeShot.ToolWindows
             finally
             {
                 _isRefreshingSelection = false;
+            }
+
+            if (_copyWhenReady)
+            {
+                _copyWhenReady = false;
+
+                // An empty preview would replace the clipboard with a blank window, so nothing is
+                // copied until there is code to copy. A control that was just created has not had
+                // its first layout pass either, hence waiting for layout before rendering.
+                if (_selectedLineCount > 0)
+                {
+                    await Dispatcher.InvokeAsync(CopyImage, DispatcherPriority.Loaded);
+                }
             }
         }
 
@@ -564,14 +591,28 @@ namespace CodeShot.ToolWindows
             var titleBarBackground = isDark
                 ? Blend(editorBackground, Colors.White, 0.07)
                 : Blend(editorBackground, Colors.Black, 0.05);
-            var frameBorder = Blend(editorBackground, editorForeground, 0.22);
+
+            // A high contrast outline makes the window look pasted onto the backdrop, so the frame
+            // is only a hairline of light or shade over the editor background the way a real window
+            // edge catches the light, and the title bar is separated by its fill instead of a rule.
+            var frameBorder = isDark
+                ? Blend(editorBackground, Colors.White, 0.13)
+                : Blend(editorBackground, Colors.Black, 0.11);
+            var titleBarSeparator = isDark
+                ? Blend(titleBarBackground, Colors.White, 0.05)
+                : Blend(titleBarBackground, Colors.Black, 0.04);
 
             CaptureSurface.Background = GetCaptureBackgroundBrush(captureBackground);
             SnapshotFrame.Background = new SolidColorBrush(editorBackground);
             SnapshotFrame.BorderBrush = new SolidColorBrush(frameBorder);
             TitleBarBorder.Background = new SolidColorBrush(titleBarBackground);
-            TitleBarBorder.BorderBrush = new SolidColorBrush(frameBorder);
+            TitleBarBorder.BorderBrush = new SolidColorBrush(titleBarSeparator);
             TitleBarBorder.BorderThickness = new Thickness(0, 0, 0, 1);
+
+            // A black shadow barely registers on a dark backdrop, so how far it is pushed depends
+            // on what it falls onto.
+            _isDarkBackdrop = _backgroundMode == BackgroundMode.Custom ? IsDark(_backgroundColor) : isDark;
+            ApplyShadow();
 
             PreviewText.Foreground = foreground ?? new SolidColorBrush(editorForeground);
             LineNumbersText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.55));
@@ -692,8 +733,19 @@ namespace CodeShot.ToolWindows
             {
                 BackgroundMode.Transparent => Brushes.Transparent,
                 BackgroundMode.Custom => new SolidColorBrush(_backgroundColor),
-                _ => new SolidColorBrush(themeBackground)
+                _ => CreateBackdropBrush(themeBackground)
             };
+
+        // A flat fill behind the window reads as an empty area rather than as a surface, so the
+        // themed backdrop gets a barely visible diagonal gradient. A custom color is left exactly
+        // as the user typed it, because that one is usually chosen to match something else.
+        private static Brush CreateBackdropBrush(Color color)
+        {
+            var top = Blend(color, Colors.White, 0.07);
+            var bottom = Blend(color, Colors.Black, 0.07);
+
+            return new LinearGradientBrush(top, bottom, new Point(0, 0), new Point(0.35, 1));
+        }
 
         private static bool IsDark(Color color)
             => ((color.R * 299) + (color.G * 587) + (color.B * 114)) / 1000.0 < 140;
@@ -1096,6 +1148,7 @@ namespace CodeShot.ToolWindows
             _showShadow = showShadow;
 
             SnapshotFrame.CornerRadius = new CornerRadius(_cornerRadius);
+            ShadowHost.CornerRadius = new CornerRadius(_cornerRadius);
             TitleBarBorder.CornerRadius = new CornerRadius(_cornerRadius, _cornerRadius, 0, 0);
 
             // The outer surface sits behind the frame, so it needs the larger radius of the two
@@ -1109,16 +1162,39 @@ namespace CodeShot.ToolWindows
         // away and only cost render time.
         private void ApplyShadow()
         {
-            SnapshotFrame.Effect = _showShadow && _padding >= ShadowMinimumPadding
-                ? new DropShadowEffect
-                {
-                    BlurRadius = 22,
-                    ShadowDepth = 6,
-                    Direction = 270,
-                    Opacity = 0.45,
-                    Color = Colors.Black
-                }
-                : null;
+            if (_showShadow == false || _padding < ShadowMinimumPadding)
+            {
+                ShadowHost.Effect = null;
+                SnapshotFrame.Effect = null;
+                return;
+            }
+
+            // Real light casts a wide ambient shadow plus a tight one where the object meets the
+            // surface, and a single blur only ever looks like a smudge. Both are derived from the
+            // padding, because a shadow that reaches past the edge of the image is cut off there
+            // and leaves a hard line exactly where the falloff should be softest.
+            var ambientBlur = Math.Min(64, _padding * 0.9);
+            var ambientDepth = _padding * 0.22;
+            var contactBlur = _padding * 0.3;
+            var contactDepth = _padding * 0.1;
+
+            ShadowHost.Effect = new DropShadowEffect
+            {
+                BlurRadius = ambientBlur,
+                ShadowDepth = ambientDepth,
+                Direction = 270,
+                Opacity = _isDarkBackdrop ? 0.42 : 0.26,
+                Color = Colors.Black
+            };
+
+            SnapshotFrame.Effect = new DropShadowEffect
+            {
+                BlurRadius = contactBlur,
+                ShadowDepth = contactDepth,
+                Direction = 270,
+                Opacity = _isDarkBackdrop ? 0.3 : 0.18,
+                Color = Colors.Black
+            };
         }
 
         private void ApplyPadding(int padding)
@@ -1162,10 +1238,18 @@ namespace CodeShot.ToolWindows
 
             var fontFamily = new FontFamily(_fontFamilyName);
 
+            // The default line spacing of a monospaced font is tight enough that a screenshot reads
+            // as a wall of text, so the lines are opened up the way a code sample in an article is.
+            var lineHeight = Math.Round(_fontSize * 1.45);
+
             PreviewText.FontFamily = fontFamily;
             PreviewText.FontSize = _fontSize;
+            PreviewText.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+            PreviewText.LineHeight = lineHeight;
             LineNumbersText.FontFamily = fontFamily;
             LineNumbersText.FontSize = _fontSize;
+            LineNumbersText.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+            LineNumbersText.LineHeight = lineHeight;
         }
 
         // Faults are reported to the activity log instead of being left on an unobserved task.

@@ -27,94 +27,100 @@
                 x:Name="CaptureSurface"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"
-                SnapsToDevicePixels="True">
-                <Border
-                    x:Name="SnapshotFrame"
-                    MinWidth="320"
-                    BorderThickness="1"
-                    SnapsToDevicePixels="True">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
+                SnapsToDevicePixels="True"
+                TextOptions.TextFormattingMode="Ideal"
+                TextOptions.TextRenderingMode="Grayscale">
+                <!-- The shadow is layered across two elements, so a wide ambient shadow and a tight
+                     contact shadow can be composed into one soft falloff. -->
+                <Border x:Name="ShadowHost">
+                    <Border
+                        x:Name="SnapshotFrame"
+                        MinWidth="320"
+                        BorderThickness="1"
+                        SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                                <Border x:Name="TitleBarBorder" Grid.Row="0" Margin="0,0,0,10" Padding="12,7">
-                                    <DockPanel x:Name="TitleBar" LastChildFill="True">
-                                        <StackPanel
-                                            x:Name="MacWindowControls"
-                                            DockPanel.Dock="Left"
-                                            Orientation="Horizontal"
-                                            VerticalAlignment="Center"
-                                            Margin="0,0,10,0"
-                                            Visibility="Collapsed">
-                                            <Ellipse Width="11" Height="11" Margin="0,0,7,0" Fill="#FF5F57" />
-                                            <Ellipse Width="11" Height="11" Margin="0,0,7,0" Fill="#FEBC2E" />
-                                            <Ellipse Width="11" Height="11" Fill="#28C840" />
-                                        </StackPanel>
+                            <Border x:Name="TitleBarBorder" Grid.Row="0" Margin="0,0,0,14" Padding="16,10">
+                                <DockPanel x:Name="TitleBar" LastChildFill="True">
+                                    <StackPanel
+                                        x:Name="MacWindowControls"
+                                        DockPanel.Dock="Left"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center"
+                                        Margin="0,0,10,0"
+                                        Visibility="Collapsed">
+                                        <Ellipse Width="11" Height="11" Margin="0,0,7,0" Fill="#FF5F57" />
+                                        <Ellipse Width="11" Height="11" Margin="0,0,7,0" Fill="#FEBC2E" />
+                                        <Ellipse Width="11" Height="11" Fill="#28C840" />
+                                    </StackPanel>
 
-                                        <StackPanel
-                                            x:Name="WindowsWindowControls"
-                                            DockPanel.Dock="Right"
-                                            Orientation="Horizontal"
-                                            VerticalAlignment="Center"
-                                            Margin="10,0,0,0"
-                                            Visibility="Collapsed">
-                                            <!-- Segoe MDL2 Assets ships with Windows and carries the real caption glyphs. -->
-                                            <TextBlock x:Name="MinimizeGlyph" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,14,0" Text="&#xE921;" />
-                                            <TextBlock x:Name="MaximizeGlyph" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,14,0" Text="&#xE922;" />
-                                            <TextBlock x:Name="CloseGlyph" FontFamily="Segoe MDL2 Assets" FontSize="10" Text="&#xE8BB;" />
-                                        </StackPanel>
+                                    <StackPanel
+                                        x:Name="WindowsWindowControls"
+                                        DockPanel.Dock="Right"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center"
+                                        Margin="10,0,0,0"
+                                        Visibility="Collapsed">
+                                        <!-- Segoe MDL2 Assets ships with Windows and carries the real caption glyphs. -->
+                                        <TextBlock x:Name="MinimizeGlyph" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,14,0" Text="&#xE921;" />
+                                        <TextBlock x:Name="MaximizeGlyph" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,14,0" Text="&#xE922;" />
+                                        <TextBlock x:Name="CloseGlyph" FontFamily="Segoe MDL2 Assets" FontSize="10" Text="&#xE8BB;" />
+                                    </StackPanel>
 
-                                        <TextBlock x:Name="TitleText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
-                                    </DockPanel>
-                                </Border>
+                                    <TextBlock x:Name="TitleText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+                                </DockPanel>
+                            </Border>
 
-                                <Grid x:Name="CodeArea" Grid.Row="1" Margin="12,0,12,12" Background="Transparent">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="12" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
+                            <Grid x:Name="CodeArea" Grid.Row="1" Margin="16,0,16,16" Background="Transparent">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
 
-                                    <!-- The highlight sits under the text and the dimming over it, so the
-                                         code stays legible while the lines around it recede. -->
-                                    <Canvas
-                                        x:Name="HighlightLayer"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="3"
-                                        Panel.ZIndex="0"
-                                        IsHitTestVisible="False" />
+                                <!-- The highlight sits under the text and the dimming over it, so the
+                                     code stays legible while the lines around it recede. -->
+                                <Canvas
+                                    x:Name="HighlightLayer"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="3"
+                                    Panel.ZIndex="0"
+                                    IsHitTestVisible="False" />
 
-                                    <TextBlock
-                                        Grid.Column="0"
-                                        Panel.ZIndex="1"
-                                        x:Name="LineNumbersText"
-                                        FontFamily="Consolas"
-                                        FontSize="13"
-                                        TextAlignment="Right"
-                                        VerticalAlignment="Top" />
+                                <TextBlock
+                                    Grid.Column="0"
+                                    Panel.ZIndex="1"
+                                    x:Name="LineNumbersText"
+                                    FontFamily="Consolas"
+                                    FontSize="13"
+                                    TextAlignment="Right"
+                                    VerticalAlignment="Top" />
 
-                                    <TextBlock
-                                        Grid.Column="2"
-                                        Panel.ZIndex="1"
-                                        x:Name="PreviewText"
-                                        FontFamily="Consolas"
-                                        FontSize="13"
-                                        TextWrapping="NoWrap"
-                                        VerticalAlignment="Top" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    Panel.ZIndex="1"
+                                    x:Name="PreviewText"
+                                    FontFamily="Consolas"
+                                    FontSize="13"
+                                    TextWrapping="NoWrap"
+                                    VerticalAlignment="Top" />
 
-                                    <Canvas
-                                        x:Name="DimLayer"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="3"
-                                        Panel.ZIndex="2"
-                                        IsHitTestVisible="False" />
-                                </Grid>
+                                <Canvas
+                                    x:Name="DimLayer"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="3"
+                                    Panel.ZIndex="2"
+                                    IsHitTestVisible="False" />
                             </Grid>
-                        </Border>
+                        </Grid>
                     </Border>
-                </ScrollViewer>
+                </Border>
+            </Border>
+        </ScrollViewer>
 
         <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static shell:VsBrushes.ToolWindowBorderKey}}">
             <TextBlock
