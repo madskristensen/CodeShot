@@ -53,6 +53,7 @@ namespace CodeShot
         public const int ClearAnnotationsCommand = 0x0200;
         public const int ArrowAnnotationCommand = 0x0210;
         public const int HighlightAnnotationCommand = 0x0220;
+        public const int TextAnnotationCommand = 0x0230;
         public const int OpenOptionsCommand = 0x0180;
         public const int FontFamilyCombo = 0x0160;
         public const int FontFamilyComboList = 0x0161;

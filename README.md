@@ -42,7 +42,8 @@ them all, and picking a new selection in the editor starts over.
 
 Open **Annotate** on the tool window toolbar to draw a rectangle around an
 expression, point to it with an arrow, highlight an individual identifier, or
-cover sensitive content with an opaque redaction block. Choose
+add a text callout. You can also cover sensitive content with an opaque
+redaction block. Choose
 **Eraser** and click an annotation to remove it, or use **Clear Annotations** to
 start over. Annotations are part of the exported PNG and reset when the editor
 selection changes so they cannot drift onto different code. When a redaction is

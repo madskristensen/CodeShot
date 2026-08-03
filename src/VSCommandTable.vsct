@@ -226,7 +226,17 @@
         </Strings>
       </Button>
 
-      <Button guid="CodeShot" id="RedactAnnotationCommand" priority="0x0500" type="Button">
+      <Button guid="CodeShot" id="TextAnnotationCommand" priority="0x0500" type="Button">
+        <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Text</ButtonText>
+          <ToolTipText>Add a text callout</ToolTipText>
+          <LocCanonicalName>.CodeShot.AnnotationText</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="RedactAnnotationCommand" priority="0x0600" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
@@ -236,7 +246,7 @@
         </Strings>
       </Button>
 
-      <Button guid="CodeShot" id="EraserAnnotationCommand" priority="0x0600" type="Button">
+      <Button guid="CodeShot" id="EraserAnnotationCommand" priority="0x0700" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
@@ -337,6 +347,7 @@
       <IDSymbol name="ClearAnnotationsCommand" value="0x0200" />
       <IDSymbol name="ArrowAnnotationCommand" value="0x0210" />
       <IDSymbol name="HighlightAnnotationCommand" value="0x0220" />
+      <IDSymbol name="TextAnnotationCommand" value="0x0230" />
       <IDSymbol name="OpenOptionsCommand" value="0x0180" />
 
       <IDSymbol name="FontFamilyCombo" value="0x0160" />

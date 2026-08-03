@@ -609,6 +609,8 @@ namespace CodeShot.ToolWindows
 
         private RenderTargetBitmap? RenderSnapshot()
         {
+            _annotationController.CommitTextEdit();
+
             // The capture surface sizes to its content rather than to the viewport, so the whole
             // selection is rendered even when the tool window is too small to show all of it.
             CaptureSurface.UpdateLayout();

@@ -19,6 +19,8 @@ namespace CodeShot.ToolWindows
         private Point? _start;
         private AnnotationKind? _draftKind;
         private FrameworkElement? _draft;
+        private TextBox? _textEditor;
+        private Point _textPosition;
 
         internal AnnotationController(FrameworkElement surface, Canvas layer, Action<string> setStatus)
         {
@@ -33,6 +35,7 @@ namespace CodeShot.ToolWindows
 
         internal void SetMode(AnnotationMode mode)
         {
+            CommitTextEdit();
             CancelDraft();
             Mode = mode;
             _surface.Cursor = mode switch
@@ -40,6 +43,7 @@ namespace CodeShot.ToolWindows
                 AnnotationMode.Rectangle => Cursors.Cross,
                 AnnotationMode.Arrow => Cursors.Cross,
                 AnnotationMode.Highlight => Cursors.Cross,
+                AnnotationMode.Text => Cursors.IBeam,
                 AnnotationMode.Redact => Cursors.Cross,
                 AnnotationMode.Eraser => Cursors.Hand,
                 _ => Cursors.Arrow
@@ -49,6 +53,7 @@ namespace CodeShot.ToolWindows
                 AnnotationMode.Rectangle => "Rectangle tool active. Drag across the code to draw.",
                 AnnotationMode.Arrow => "Arrow tool active. Drag from the subject toward the point of interest.",
                 AnnotationMode.Highlight => "Highlighter active. Drag across an expression to emphasize it.",
+                AnnotationMode.Text => "Text tool active. Click where the note should appear.",
                 AnnotationMode.Redact => "Redact tool active. Drag across sensitive content to cover it.",
                 AnnotationMode.Eraser => "Eraser active. Click an annotation to remove it.",
                 _ => "Select mode active. Click a line to highlight it."
@@ -63,6 +68,13 @@ namespace CodeShot.ToolWindows
             }
 
             var point = Clamp(e.GetPosition(_surface));
+
+            if (Mode == AnnotationMode.Text)
+            {
+                BeginTextEdit(point);
+                e.Handled = true;
+                return true;
+            }
 
             if (Mode == AnnotationMode.Eraser)
             {
@@ -151,6 +163,7 @@ namespace CodeShot.ToolWindows
 
         internal void Reset()
         {
+            CancelTextEdit();
             CancelDraft();
             _annotations.Clear();
             Refresh();
@@ -164,6 +177,39 @@ namespace CodeShot.ToolWindows
             {
                 _layer.Children.Add(CreateElement(annotation, false));
             }
+
+            if (_textEditor is not null)
+            {
+                _layer.Children.Add(_textEditor);
+                PositionElement(_textEditor, _textPosition);
+            }
+        }
+
+        internal void CommitTextEdit()
+        {
+            if (_textEditor is null)
+            {
+                return;
+            }
+
+            var editor = _textEditor;
+            var text = editor.Text.Trim();
+            _textEditor = null;
+            _layer.IsHitTestVisible = false;
+            _layer.Children.Remove(editor);
+
+            if (text.Length == 0)
+            {
+                _setStatus("Empty text callout discarded.");
+                return;
+            }
+
+            editor.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var size = editor.DesiredSize;
+            var end = Clamp(new Point(_textPosition.X + size.Width, _textPosition.Y + size.Height));
+            _annotations.Add(new CodeAnnotation(AnnotationKind.Text, _textPosition, end, text));
+            Refresh();
+            _setStatus("Text callout added.");
         }
 
         private void CancelDraft()
@@ -181,6 +227,63 @@ namespace CodeShot.ToolWindows
             {
                 _surface.ReleaseMouseCapture();
             }
+        }
+
+        private void BeginTextEdit(Point position)
+        {
+            CommitTextEdit();
+            _textPosition = position;
+            _textEditor = new TextBox
+            {
+                MinWidth = 140,
+                MaxWidth = Math.Max(140, _surface.ActualWidth - position.X),
+                Padding = new Thickness(6, 4, 6, 4),
+                Background = CalloutBackgroundBrush,
+                Foreground = Brushes.Black,
+                BorderBrush = AnnotationBrush,
+                BorderThickness = new Thickness(2),
+                FontFamily = new FontFamily("Segoe UI"),
+                FontSize = 13
+            };
+            _textEditor.KeyDown += OnTextEditorKeyDown;
+            _textEditor.LostKeyboardFocus += OnTextEditorLostKeyboardFocus;
+            _layer.IsHitTestVisible = true;
+            _layer.Children.Add(_textEditor);
+            PositionElement(_textEditor, position);
+            _textEditor.Focus();
+        }
+
+        private void OnTextEditorKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                CommitTextEdit();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                CancelTextEdit();
+                _setStatus("Text callout canceled.");
+                e.Handled = true;
+            }
+        }
+
+        private void OnTextEditorLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+            => CommitTextEdit();
+
+        private void CancelTextEdit()
+        {
+            if (_textEditor is null)
+            {
+                return;
+            }
+
+            var editor = _textEditor;
+            _textEditor = null;
+            editor.KeyDown -= OnTextEditorKeyDown;
+            editor.LostKeyboardFocus -= OnTextEditorLostKeyboardFocus;
+            _layer.Children.Remove(editor);
+            _layer.IsHitTestVisible = false;
         }
 
         private void Erase(Point point)
@@ -217,6 +320,11 @@ namespace CodeShot.ToolWindows
             if (annotation.Kind == AnnotationKind.Arrow)
             {
                 return CreateArrow(annotation, isDraft);
+            }
+
+            if (annotation.Kind == AnnotationKind.Text)
+            {
+                return CreateTextCallout(annotation);
             }
 
             var rectangle = new Rectangle
@@ -275,6 +383,27 @@ namespace CodeShot.ToolWindows
             };
         }
 
+        private static Border CreateTextCallout(CodeAnnotation annotation)
+        {
+            var border = new Border
+            {
+                Background = CalloutBackgroundBrush,
+                BorderBrush = AnnotationBrush,
+                BorderThickness = new Thickness(2),
+                Padding = new Thickness(6, 4, 6, 4),
+                IsHitTestVisible = false,
+                Child = new TextBlock
+                {
+                    Text = annotation.Text,
+                    Foreground = Brushes.Black,
+                    FontFamily = new FontFamily("Segoe UI"),
+                    FontSize = 13
+                }
+            };
+            PositionElement(border, annotation.Start);
+            return border;
+        }
+
         private static void SetElementBounds(Rectangle rectangle, Rect bounds)
         {
             rectangle.Width = bounds.Width;
@@ -283,7 +412,14 @@ namespace CodeShot.ToolWindows
             Canvas.SetTop(rectangle, bounds.Top);
         }
 
+        private static void PositionElement(FrameworkElement element, Point position)
+        {
+            Canvas.SetLeft(element, position.X);
+            Canvas.SetTop(element, position.Y);
+        }
+
         private static Brush AnnotationBrush { get; } = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
         private static Brush HighlightBrush { get; } = new SolidColorBrush(Color.FromArgb(0x70, 0xFF, 0xEB, 0x3B));
+        private static Brush CalloutBackgroundBrush { get; } = new SolidColorBrush(Color.FromRgb(0xFF, 0xF8, 0xE1));
     }
 }
