@@ -41,6 +41,8 @@ namespace CodeShot.ToolWindows
         private double _fontSize = FontCatalog.FallbackSize;
         private double _exportScale = 2d;
         private int _padding = 18;
+        private BackgroundMode _backgroundMode = BackgroundMode.Theme;
+        private Color _backgroundColor = Color.FromRgb(0xAB, 0xB8, 0xC3);
         private bool _copyPlainTextWithImage = true;
 
         public CodeShotToolWindowControl(General options)
@@ -487,7 +489,7 @@ namespace CodeShot.ToolWindows
                 : Blend(editorBackground, Colors.Black, 0.05);
             var frameBorder = Blend(editorBackground, editorForeground, 0.22);
 
-            CaptureSurface.Background = new SolidColorBrush(captureBackground);
+            CaptureSurface.Background = GetCaptureBackgroundBrush(captureBackground);
             SnapshotFrame.Background = new SolidColorBrush(editorBackground);
             SnapshotFrame.BorderBrush = new SolidColorBrush(frameBorder);
             TitleBarBorder.Background = new SolidColorBrush(titleBarBackground);
@@ -498,6 +500,16 @@ namespace CodeShot.ToolWindows
             LineNumbersText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.55));
             TitleText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.15));
         }
+
+        // A transparent surface still has to be hit-testable, otherwise clicks fall through the
+        // preview, so Brushes.Transparent is used instead of leaving the background unset.
+        private Brush GetCaptureBackgroundBrush(Color themeBackground)
+            => _backgroundMode switch
+            {
+                BackgroundMode.Transparent => Brushes.Transparent,
+                BackgroundMode.Custom => new SolidColorBrush(_backgroundColor),
+                _ => new SolidColorBrush(themeBackground)
+            };
 
         private static bool IsDark(Color color)
             => ((color.R * 299) + (color.G * 587) + (color.B * 114)) / 1000.0 < 140;
@@ -845,6 +857,8 @@ namespace CodeShot.ToolWindows
             {
                 _exportScale = ClampExportScale(options.ExportScale);
                 _copyPlainTextWithImage = options.CopyPlainTextWithImage;
+                _backgroundMode = options.BackgroundMode;
+                _backgroundColor = ParseColor(options.BackgroundColor, _backgroundColor);
                 ApplyPadding(options.Padding);
                 PreviewFontFamily = string.IsNullOrWhiteSpace(options.FontFamily) ? editorFamily : options.FontFamily;
                 PreviewFontSize = options.FontSize <= 0 ? editorSize : options.FontSize;
@@ -855,6 +869,26 @@ namespace CodeShot.ToolWindows
             finally
             {
                 _isApplyingOptions = false;
+            }
+
+            ApplyTheme();
+        }
+
+        // An unusable value in the options page must not break the preview, so the previous color is kept.
+        private static Color ParseColor(string value, Color fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return fallback;
+            }
+
+            try
+            {
+                return ColorConverter.ConvertFromString(value) is Color color ? color : fallback;
+            }
+            catch (FormatException)
+            {
+                return fallback;
             }
         }
 

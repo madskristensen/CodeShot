@@ -3,6 +3,13 @@ using System.Runtime.InteropServices;
 
 namespace CodeShot
 {
+    public enum BackgroundMode
+    {
+        Theme,
+        Custom,
+        Transparent
+    }
+
     internal partial class OptionsProvider
     {
         [ComVisible(true)]
@@ -24,6 +31,18 @@ namespace CodeShot
         [DefaultValue(0d)]
         [TypeConverter(typeof(FontSizeTypeConverter))]
         public double FontSize { get; set; }
+
+        [Category("Appearance")]
+        [DisplayName("Background")]
+        [Description("Theme derives the background from the editor colors, Custom uses the background color below, and Transparent leaves it empty so the screenshot blends into any surface. Transparency is preserved when saving to a PNG file.")]
+        [DefaultValue(BackgroundMode.Theme)]
+        public BackgroundMode BackgroundMode { get; set; } = BackgroundMode.Theme;
+
+        [Category("Appearance")]
+        [DisplayName("Background color")]
+        [Description("The background color used when Background is set to Custom, written as a hex value such as #ABB8C3.")]
+        [DefaultValue("#ABB8C3")]
+        public string BackgroundColor { get; set; } = "#ABB8C3";
 
         [Category("Appearance")]
         [DisplayName("Padding")]

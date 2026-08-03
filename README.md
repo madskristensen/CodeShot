@@ -40,7 +40,10 @@ Everything lives on the tool window toolbar:
   standalone sample instead of exposing where it came from in the file. Turn on
   **Real Line Numbers** to number the lines from their position in the file
   instead, which is what you want when pointing at a specific place in the code.
-- Colors follow the Visual Studio editor theme automatically.
+- Colors follow the Visual Studio editor theme automatically, or pick a custom
+  background color, or make the background fully transparent so the screenshot
+  blends into a slide or a page. Transparency is preserved when saving to a PNG
+  file.
 - Set the **padding** in **Tools > Options > CodeShot > General** to control the
   space around the code window, or set it to 0 to export the code window on its
   own.
