@@ -37,6 +37,8 @@ namespace CodeShot.ToolWindows
         private string _selectedCode = string.Empty;
         private int _selectedLineCount;
         private IReadOnlyList<Inline>? _classifiedInlines;
+        private IWpfTextView? _previewTextView;
+        private IReadOnlyList<SnapshotSpan> _previewSpans = Array.Empty<SnapshotSpan>();
         private IWpfTextView? _trackedTextView;
         private bool _isRefreshingSelection;
         private bool _isRefreshPending;
@@ -491,7 +493,14 @@ namespace CodeShot.ToolWindows
 
             var textView = GetActiveTextView();
 
-            if (textView is null || textView.Selection.IsEmpty || textView.Selection.SelectedSpans.Count == 0)
+            // Activating the CodeShot tool window leaves no active editor view. Keep the captured
+            // selection in that case so annotations survive while the user works in the preview.
+            if (textView is null)
+            {
+                return;
+            }
+
+            if (textView.Selection.IsEmpty || textView.Selection.SelectedSpans.Count == 0)
             {
                 ClearSelectionPreview();
                 return;
@@ -507,15 +516,21 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
+            var selectionChanged = IsPreviewSelectionChanged(textView, selectedSpans);
             _selectedCode = string.Join(Environment.NewLine, selectedSpans.Select(span => span.GetText()));
             _selectedLineCount = selectedSpans.Count;
             _firstSelectedLineNumber = selectedSpans[0].Snapshot.GetLineNumberFromPosition(selectedSpans[0].Start) + 1;
             _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
+            _previewTextView = textView;
+            _previewSpans = selectedSpans.ToArray();
 
             // The highlights are line indexes into the previous selection, so they no longer
             // point at the same code once a new selection has been read.
-            _highlightedLines.Clear();
-            _annotationController.Reset();
+            if (selectionChanged)
+            {
+                _highlightedLines.Clear();
+                _annotationController.Reset();
+            }
 
             _documentTokens = CaptureDocumentTokens(textView);
             TitleText.Text = _documentTokens.ExpandOrDefault(_windowTitleTemplate, "CodeShot");
@@ -568,12 +583,37 @@ namespace CodeShot.ToolWindows
             _selectedLineCount = 0;
             _firstSelectedLineNumber = 1;
             _classifiedInlines = null;
+            _previewTextView = null;
+            _previewSpans = Array.Empty<SnapshotSpan>();
             _highlightedLines.Clear();
             _annotationController.Reset();
             _documentTokens = DocumentTokens.Empty;
             TitleText.Text = "No selection";
             StatusText.Text = "Select code in the editor to update the preview.";
             UpdatePreviewText();
+        }
+
+        private bool IsPreviewSelectionChanged(IWpfTextView textView, IReadOnlyList<SnapshotSpan> spans)
+        {
+            if (ReferenceEquals(_previewTextView, textView) == false || _previewSpans.Count != spans.Count)
+            {
+                return true;
+            }
+
+            for (var index = 0; index < spans.Count; index++)
+            {
+                var previous = _previewSpans[index];
+                var current = spans[index];
+
+                if (ReferenceEquals(previous.Snapshot, current.Snapshot) == false
+                    || previous.Start.Position != current.Start.Position
+                    || previous.Length != current.Length)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void UpdatePreviewText()
