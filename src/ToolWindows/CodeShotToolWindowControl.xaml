@@ -23,13 +23,19 @@
             VerticalScrollBarVisibility="Auto"
             Padding="10">
             <!-- The capture surface is the exported image, so it must never be clipped to the viewport. -->
+            <!-- The text options are chosen for an exported image rather than for a screen. Ideal
+                 formatting keeps the true glyph advances instead of rounding them to whole pixels,
+                 Grayscale avoids the color fringes that subpixel rendering would bake into a PNG
+                 that can land on any background, and Animated hinting turns off the stem snapping
+                 that otherwise makes the letters look hard edged and unevenly weighted. -->
             <Border
                 x:Name="CaptureSurface"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"
                 SnapsToDevicePixels="True"
                 TextOptions.TextFormattingMode="Ideal"
-                TextOptions.TextRenderingMode="Grayscale">
+                TextOptions.TextRenderingMode="Grayscale"
+                TextOptions.TextHintingMode="Animated">
                 <!-- The shadow is layered across two elements, so a wide ambient shadow and a tight
                      contact shadow can be composed into one soft falloff. -->
                 <Border x:Name="ShadowHost">
