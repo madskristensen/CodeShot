@@ -1,17 +1,11 @@
 ﻿{
   "$schema": "http://json.schemastore.org/vsix-publish",
-  "categories": [ "coding", "other" ],
+  "categories": [ "documentation", "other" ],
   "private": false,
   "identity": {
     "internalName": "CodeShot",
-    "tags": [ "screenshot", "image", "png", "code", "snippet", "capture", "share", "tool window" ]
+    "tags": [ "screenshot", "image", "png", "code" ]
   },
-  "assetFiles": [
-    {
-      "pathOnDisk": "art/tool-window.png",
-      "targetPath": "art/tool-window.png"
-    }
-  ],
   "assetFiles": [
     {
       "pathOnDisk": "art/tool-window.png",
