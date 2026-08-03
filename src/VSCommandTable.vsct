@@ -44,6 +44,12 @@
         <Parent guid="CodeShot" id="CodeShotToolbar" />
       </Group>
 
+      <!-- Line numbering has two settings that only make sense together, so they get their own
+           group and the separator that comes with it. -->
+      <Group guid="CodeShot" id="OptionsMenuLineNumbersGroup" priority="0x0050">
+        <Parent guid="CodeShot" id="OptionsMenu" />
+      </Group>
+
       <Group guid="CodeShot" id="OptionsMenuGroup" priority="0x0100">
         <Parent guid="CodeShot" id="OptionsMenu" />
       </Group>
@@ -103,12 +109,22 @@
       </Button>
 
       <Button guid="CodeShot" id="ShowLineNumbersCommand" priority="0x0100" type="Button">
-        <Parent guid="CodeShot" id="OptionsMenuGroup" />
+        <Parent guid="CodeShot" id="OptionsMenuLineNumbersGroup" />
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
           <ButtonText>Line Numbers</ButtonText>
           <ToolTipText>Show line numbers in the screenshot</ToolTipText>
           <LocCanonicalName>.CodeShot.ShowLineNumbers</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="UseRealLineNumbersCommand" priority="0x0200" type="Button">
+        <Parent guid="CodeShot" id="OptionsMenuLineNumbersGroup" />
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Real Line Numbers</ButtonText>
+          <ToolTipText>Number the lines from their position in the file instead of from 1</ToolTipText>
+          <LocCanonicalName>.CodeShot.UseRealLineNumbers</LocCanonicalName>
         </Strings>
       </Button>
 
@@ -119,16 +135,6 @@
           <ButtonText>Title Bar</ButtonText>
           <ToolTipText>Show the file name title bar in the screenshot</ToolTipText>
           <LocCanonicalName>.CodeShot.ShowTitleBar</LocCanonicalName>
-        </Strings>
-      </Button>
-
-      <Button guid="CodeShot" id="UseRealLineNumbersCommand" priority="0x0300" type="Button">
-        <Parent guid="CodeShot" id="OptionsMenuGroup" />
-        <CommandFlag>DefaultDisabled</CommandFlag>
-        <Strings>
-          <ButtonText>Real Line Numbers</ButtonText>
-          <ToolTipText>Number the lines from their position in the file instead of from 1</ToolTipText>
-          <LocCanonicalName>.CodeShot.UseRealLineNumbers</LocCanonicalName>
         </Strings>
       </Button>
 
@@ -212,6 +218,7 @@
       <IDSymbol name="OptionsMenu" value="0x1040" />
       <IDSymbol name="OptionsMenuGroup" value="0x1050" />
       <IDSymbol name="OptionsMenuSettingsGroup" value="0x1060" />
+      <IDSymbol name="OptionsMenuLineNumbersGroup" value="0x1070" />
 
       <IDSymbol name="RefreshPreviewCommand" value="0x0110" />
       <IDSymbol name="CopyImageCommand" value="0x0120" />

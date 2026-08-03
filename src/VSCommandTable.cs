@@ -33,6 +33,7 @@ namespace CodeShot
         public const int OptionsMenu = 0x1040;
         public const int OptionsMenuGroup = 0x1050;
         public const int OptionsMenuSettingsGroup = 0x1060;
+        public const int OptionsMenuLineNumbersGroup = 0x1070;
         public const int RefreshPreviewCommand = 0x0110;
         public const int CopyImageCommand = 0x0120;
         public const int SaveImageCommand = 0x0130;
