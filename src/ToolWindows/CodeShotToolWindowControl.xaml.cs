@@ -479,7 +479,8 @@ namespace CodeShot.ToolWindows
                 // its first layout pass either, hence waiting for layout before rendering.
                 if (_selectedLineCount > 0)
                 {
-                    await Dispatcher.InvokeAsync(CopyImage, DispatcherPriority.Loaded);
+                    await Dispatcher.Yield(DispatcherPriority.Loaded);
+                    CopyImage();
                 }
             }
         }
