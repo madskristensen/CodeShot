@@ -41,6 +41,9 @@ Everything lives on the tool window toolbar:
   **Real Line Numbers** to number the lines from their position in the file
   instead, which is what you want when pointing at a specific place in the code.
 - Colors follow the Visual Studio editor theme automatically.
+- Set the **padding** in **Tools > Options > CodeShot > General** to control the
+  space around the code window, or set it to 0 to export the code window on its
+  own.
 - Pick an **export scale** in **Tools > Options > CodeShot > General** to control
   the resolution of the exported image. The default of 2x produces a sharp
   result, and the output is identical on every machine because the scale is used

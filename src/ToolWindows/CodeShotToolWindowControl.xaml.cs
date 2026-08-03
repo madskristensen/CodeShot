@@ -40,6 +40,7 @@ namespace CodeShot.ToolWindows
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
         private double _exportScale = 2d;
+        private int _padding = 18;
         private bool _copyPlainTextWithImage = true;
 
         public CodeShotToolWindowControl(General options)
@@ -844,6 +845,7 @@ namespace CodeShot.ToolWindows
             {
                 _exportScale = ClampExportScale(options.ExportScale);
                 _copyPlainTextWithImage = options.CopyPlainTextWithImage;
+                ApplyPadding(options.Padding);
                 PreviewFontFamily = string.IsNullOrWhiteSpace(options.FontFamily) ? editorFamily : options.FontFamily;
                 PreviewFontSize = options.FontSize <= 0 ? editorSize : options.FontSize;
                 ShowTitleBar = options.ShowTitleBar;
@@ -854,6 +856,12 @@ namespace CodeShot.ToolWindows
             {
                 _isApplyingOptions = false;
             }
+        }
+
+        private void ApplyPadding(int padding)
+        {
+            _padding = Math.Max(0, Math.Min(200, padding));
+            CaptureSurface.Padding = new Thickness(_padding);
         }
 
         private static double ClampExportScale(double value)

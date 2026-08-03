@@ -26,6 +26,12 @@ namespace CodeShot
         public double FontSize { get; set; }
 
         [Category("Appearance")]
+        [DisplayName("Padding")]
+        [Description("The space in pixels between the code window and the edge of the screenshot. Set to 0 to export the code window on its own.")]
+        [DefaultValue(18)]
+        public int Padding { get; set; } = 18;
+
+        [Category("Appearance")]
         [DisplayName("Show line numbers")]
         [Description("Show line numbers to the left of the code in the screenshot.")]
         [DefaultValue(true)]

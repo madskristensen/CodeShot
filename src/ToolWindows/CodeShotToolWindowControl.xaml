@@ -27,7 +27,6 @@
                 x:Name="CaptureSurface"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"
-                Padding="18"
                 CornerRadius="8"
                 SnapsToDevicePixels="True">
                 <Border
