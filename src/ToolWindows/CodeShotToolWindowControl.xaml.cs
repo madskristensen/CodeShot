@@ -719,16 +719,19 @@ namespace CodeShot.ToolWindows
             // selection in that case so annotations survive while the user works in the preview.
             if (textView is null)
             {
+                DetachFromSelectionChanges();
                 return;
             }
+
+            // Track empty views too, otherwise selecting text later in the same editor never schedules
+            // a refresh and the previous editor remains strongly referenced.
+            AttachToSelectionChanges(textView);
 
             if (textView.Selection.IsEmpty || textView.Selection.SelectedSpans.Count == 0)
             {
                 ClearSelectionPreview();
                 return;
             }
-
-            AttachToSelectionChanges(textView);
 
             var selectedSpans = GetNormalizedSelectionSpans(textView, _keepOriginalIndentation);
 
