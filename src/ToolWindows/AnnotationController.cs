@@ -206,31 +206,22 @@ namespace CodeShot.ToolWindows
 
             foreach (var annotation in _annotations)
             {
-                if (annotation.Kind == AnnotationKind.Rectangle
+                var isBoxAnnotation = annotation.Kind == AnnotationKind.Rectangle
                     || annotation.Kind == AnnotationKind.Highlight
-                    || annotation.Kind == AnnotationKind.Redaction)
-                {
-                    var clippedBounds = Rect.Intersect(annotation.Bounds, cropBounds);
-                    if (clippedBounds.IsEmpty == false)
-                    {
-                        annotations.Add(new CodeAnnotation(
-                            annotation.Kind,
-                            TranslateToCrop(clippedBounds.TopLeft, cropBounds),
-                            TranslateToCrop(clippedBounds.BottomRight, cropBounds),
-                            annotation.Text));
-                    }
+                    || annotation.Kind == AnnotationKind.Redaction;
+                var renderedBounds = annotation.Kind == AnnotationKind.Arrow
+                    ? GetArrowRenderBounds(annotation)
+                    : annotation.Bounds;
 
-                    continue;
-                }
-
-                // Partially clipping arrows and text would change their meaning or reflow the callout,
-                // so only those wholly inside the retained area survive the crop.
-                if (cropBounds.Contains(annotation.Bounds))
+                // Box annotations retain their original geometry and are clipped by AnnotationLayer.
+                // This keeps partial redactions covering retained pixels without inventing crop-edge borders.
+                if ((isBoxAnnotation && annotation.Bounds.IntersectsWith(cropBounds))
+                    || (isBoxAnnotation == false && cropBounds.Contains(renderedBounds)))
                 {
                     annotations.Add(new CodeAnnotation(
                         annotation.Kind,
-                        TranslateToCrop(annotation.Start, cropBounds),
-                        TranslateToCrop(annotation.End, cropBounds),
+                        TranslateFromCrop(annotation.Start, cropBounds),
+                        TranslateFromCrop(annotation.End, cropBounds),
                         annotation.Text));
                 }
             }
@@ -440,10 +431,8 @@ namespace CodeShot.ToolWindows
             _annotations.Add(annotation);
         }
 
-        private static Point TranslateToCrop(Point point, Rect cropBounds)
-            => new Point(
-                Math.Max(0, Math.Min(cropBounds.Width, point.X - cropBounds.Left)),
-                Math.Max(0, Math.Min(cropBounds.Height, point.Y - cropBounds.Top)));
+        private static Point TranslateFromCrop(Point point, Rect cropBounds)
+            => new Point(point.X - cropBounds.Left, point.Y - cropBounds.Top);
 
         private Point Clamp(Point point)
             => new Point(
@@ -511,6 +500,31 @@ namespace CodeShot.ToolWindows
 
         private static Path CreateArrow(CodeAnnotation annotation, bool isDraft)
         {
+            return new Path
+            {
+                Data = CreateArrowGeometry(annotation),
+                Stroke = AnnotationBrush,
+                StrokeThickness = 3,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Fill = AnnotationBrush,
+                IsHitTestVisible = false,
+                Opacity = isDraft ? 0.7 : 1
+            };
+        }
+
+        private static Rect GetArrowRenderBounds(CodeAnnotation annotation)
+        {
+            var pen = new Pen(AnnotationBrush, 3)
+            {
+                StartLineCap = PenLineCap.Round,
+                EndLineCap = PenLineCap.Round
+            };
+            return CreateArrowGeometry(annotation).GetRenderBounds(pen);
+        }
+
+        private static StreamGeometry CreateArrowGeometry(CodeAnnotation annotation)
+        {
             const double headLength = 12;
             const double headWidth = 7;
 
@@ -534,17 +548,7 @@ namespace CodeShot.ToolWindows
             }
 
             geometry.Freeze();
-            return new Path
-            {
-                Data = geometry,
-                Stroke = AnnotationBrush,
-                StrokeThickness = 3,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round,
-                Fill = AnnotationBrush,
-                IsHitTestVisible = false,
-                Opacity = isDraft ? 0.7 : 1
-            };
+            return geometry;
         }
 
         private static Border CreateTextCallout(CodeAnnotation annotation)
