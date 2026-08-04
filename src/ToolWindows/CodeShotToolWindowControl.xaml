@@ -92,11 +92,12 @@
             Padding="10"
             PreviewMouseWheel="OnPreviewMouseWheel">
             <!-- Zoom is applied outside the capture surface so annotations use image coordinates and
-                 exported images remain independent of the on-screen preview scale. -->
-            <Grid HorizontalAlignment="Left" VerticalAlignment="Top">
-                <Grid.LayoutTransform>
+                 exported images remain independent of the on-screen preview scale. A vertical stack
+                 measures the capture surface at its content height instead of stretching it to the viewport. -->
+            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top">
+                <StackPanel.LayoutTransform>
                     <ScaleTransform x:Name="ZoomTransform" ScaleX="1" ScaleY="1" />
-                </Grid.LayoutTransform>
+                </StackPanel.LayoutTransform>
 
                 <!-- The capture surface is the exported image, so it must never be clipped to the viewport. -->
                 <!-- The text options are chosen for an exported image rather than for a screen. Ideal
@@ -229,7 +230,7 @@
                         </Border>
                     </Border>
                 </Border>
-            </Grid>
+            </StackPanel>
         </ScrollViewer>
 
         <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static shell:VsBrushes.ToolWindowBorderKey}}">
