@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Automation;
@@ -18,8 +19,23 @@ namespace CodeShot.ToolWindows
     {
         private const int MaximumCaptureDimension = 16384;
         private const long MaximumCapturePixelCount = 32_000_000;
+        private static readonly SemaphoreSlim CaptureGate = new SemaphoreSlim(1, 1);
 
         internal static async Task<ToolWindowSnapshot?> CaptureCurrentAsync()
+        {
+            await CaptureGate.WaitAsync();
+
+            try
+            {
+                return await CaptureCurrentCoreAsync();
+            }
+            finally
+            {
+                CaptureGate.Release();
+            }
+        }
+
+        private static async Task<ToolWindowSnapshot?> CaptureCurrentCoreAsync()
         {
             var monitorSelection = await VS.GetServiceAsync<SVsShellMonitorSelection, IVsMonitorSelection>();
             if (monitorSelection is null)
@@ -29,25 +45,32 @@ namespace CodeShot.ToolWindows
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-            var result = monitorSelection.GetCurrentElementValue(
-                (uint)VSConstants.VSSELELEMID.SEID_WindowFrame,
-                out var frameValue);
-
-            if (ErrorHandler.Failed(result) || frameValue is not IVsWindowFrame frame)
+            if (TryGetCurrentFrame(monitorSelection, out var frame) == false)
             {
                 return null;
             }
 
-            if (frame is not IVsWindowFrame4 frame4
-                || frame4.GetWindowScreenRect(out var x, out var y, out var width, out var height) == false
-                || width <= 0
-                || height <= 0)
+            // Let the shell dismiss its context menu before resolving the final frame geometry.
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+
+            if (TryGetCurrentFrame(monitorSelection, out var currentFrame) == false
+                || IsSameComObject(frame, currentFrame) == false
+                || TryGetContentBounds(currentFrame, out var contentBounds) == false)
             {
                 return null;
             }
 
-            var caption = GetCaption(frame);
-            var contentBounds = new System.Drawing.Rectangle(x, y, width, height);
+            var caption = GetCaption(currentFrame);
+            var rootWindow = GetRootWindow(contentBounds);
+            if (rootWindow == IntPtr.Zero || IsWindow(rootWindow) == false || IsWindowVisible(rootWindow) == false)
+            {
+                return null;
+            }
+
+            var x = contentBounds.X;
+            var y = contentBounds.Y;
+            var width = contentBounds.Width;
+            var height = contentBounds.Height;
             var shellBorder = IncludeShellFrame(ref x, ref y, ref width, ref height, out var cornerRadius);
             var captureBounds = new System.Drawing.Rectangle(x, y, width, height);
             var chromeBounds = await FindToolWindowChromeBoundsAsync(caption, contentBounds, captureBounds);
@@ -72,9 +95,20 @@ namespace CodeShot.ToolWindows
                 return null;
             }
 
-            // Let the shell dismiss and repaint beneath its context menu before copying the frame.
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+
+            // UI Automation runs off-thread. Refuse to copy pixels if its target moved, closed,
+            // auto-hid, or lost selection while that work was in progress.
+            if (TryGetCurrentFrame(monitorSelection, out currentFrame) == false
+                || IsSameComObject(frame, currentFrame) == false
+                || TryGetContentBounds(currentFrame, out var currentBounds) == false
+                || currentBounds != contentBounds
+                || GetRootWindow(currentBounds) != rootWindow
+                || IsWindow(rootWindow) == false
+                || IsWindowVisible(rootWindow) == false)
+            {
+                return null;
+            }
 
             var visualMask = CreateVisualMask(chromeBounds, captureBounds, contentBounds);
             var bitmap = CaptureScreen(
@@ -84,6 +118,69 @@ namespace CodeShot.ToolWindows
                 selectedTabBounds,
                 visualMask);
             return new ToolWindowSnapshot(bitmap, caption);
+        }
+
+        private static bool TryGetCurrentFrame(IVsMonitorSelection monitorSelection, out IVsWindowFrame frame)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var result = monitorSelection.GetCurrentElementValue(
+                (uint)VSConstants.VSSELELEMID.SEID_WindowFrame,
+                out var frameValue);
+            frame = frameValue as IVsWindowFrame;
+            return ErrorHandler.Succeeded(result) && frame is not null;
+        }
+
+        private static bool TryGetContentBounds(IVsWindowFrame frame, out System.Drawing.Rectangle bounds)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (frame is IVsWindowFrame4 frame4
+                && frame4.GetWindowScreenRect(out var x, out var y, out var width, out var height)
+                && width > 0
+                && height > 0)
+            {
+                bounds = new System.Drawing.Rectangle(x, y, width, height);
+                return true;
+            }
+
+            bounds = System.Drawing.Rectangle.Empty;
+            return false;
+        }
+
+        private static bool IsSameComObject(object first, object second)
+        {
+            var firstIdentity = IntPtr.Zero;
+            var secondIdentity = IntPtr.Zero;
+
+            try
+            {
+                firstIdentity = Marshal.GetIUnknownForObject(first);
+                secondIdentity = Marshal.GetIUnknownForObject(second);
+                return firstIdentity == secondIdentity;
+            }
+            finally
+            {
+                if (firstIdentity != IntPtr.Zero)
+                {
+                    Marshal.Release(firstIdentity);
+                }
+
+                if (secondIdentity != IntPtr.Zero)
+                {
+                    Marshal.Release(secondIdentity);
+                }
+            }
+        }
+
+        private static IntPtr GetRootWindow(System.Drawing.Rectangle contentBounds)
+        {
+            var point = new NativePoint
+            {
+                X = contentBounds.Left + (contentBounds.Width / 2),
+                Y = contentBounds.Top
+            };
+            var window = WindowFromPoint(point);
+            return window == IntPtr.Zero ? IntPtr.Zero : GetAncestor(window, GetAncestorRoot);
         }
 
         private static bool IsCaptureSizeSupported(System.Drawing.Rectangle bounds)
@@ -125,13 +222,7 @@ namespace CodeShot.ToolWindows
             System.Drawing.Rectangle contentBounds,
             System.Drawing.Rectangle captureBounds)
         {
-            var point = new NativePoint
-            {
-                X = contentBounds.Left + (contentBounds.Width / 2),
-                Y = contentBounds.Top
-            };
-            var window = WindowFromPoint(point);
-            var rootWindow = window == IntPtr.Zero ? IntPtr.Zero : GetAncestor(window, GetAncestorRoot);
+            var rootWindow = GetRootWindow(contentBounds);
 
             if (rootWindow == IntPtr.Zero)
             {
@@ -772,6 +863,14 @@ namespace CodeShot.ToolWindows
 
         [DllImport("user32.dll")]
         private static extern uint GetDpiForWindow(IntPtr window);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsWindow(IntPtr window);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsWindowVisible(IntPtr window);
 
         [DllImport("user32.dll")]
         private static extern IntPtr WindowFromPoint(NativePoint point);
