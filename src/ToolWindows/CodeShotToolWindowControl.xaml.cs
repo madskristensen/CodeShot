@@ -31,15 +31,15 @@ namespace CodeShot.ToolWindows
         // Below this padding the shadow has no room to fall and is dropped instead of being clipped.
         private const int ShadowMinimumPadding = 5;
         private const double CropEdgeSnapDistance = 12;
-        private const int CropHistoryLimit = 10;
+        private const int EditHistoryLimit = 100;
         private const double ZoomStep = 10;
         private const int MaximumRenderDimension = 16384;
         private const long MaximumRenderPixelCount = 64_000_000;
 
         private readonly DispatcherTimer _refreshTimer;
         private readonly HashSet<int> _highlightedLines = new HashSet<int>();
-        private readonly List<ToolWindowSnapshot> _cropUndoHistory = new List<ToolWindowSnapshot>();
-        private readonly List<ToolWindowSnapshot> _cropRedoHistory = new List<ToolWindowSnapshot>();
+        private readonly List<PreviewEditState> _editUndoHistory = new List<PreviewEditState>();
+        private readonly List<PreviewEditState> _editRedoHistory = new List<PreviewEditState>();
         private readonly AnnotationController _annotationController;
         private string _selectedCode = string.Empty;
         private int _selectedLineCount;
@@ -92,6 +92,8 @@ namespace CodeShot.ToolWindows
             ThreadHelper.ThrowIfNotOnUIThread();
             InitializeComponent();
             _annotationController = new AnnotationController(CodeArea, AnnotationLayer, message => StatusText.Text = message);
+            _annotationController.Changing += OnAnnotationsChanging;
+            _annotationController.HistoryInvalidated += ClearEditHistory;
             _refreshTimer = new DispatcherTimer(DispatcherPriority.Background)
             {
                 Interval = SelectionRefreshDelay
@@ -321,16 +323,18 @@ namespace CodeShot.ToolWindows
             }
         }
 
-        private void ShowCapturedImage(ToolWindowSnapshot snapshot, bool resetCropHistory = true)
+        private void ShowCapturedImage(
+            ToolWindowSnapshot snapshot,
+            bool resetEditHistory = true,
+            AnnotationController.State? annotationState = null)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
             CancelCrop();
 
-            if (resetCropHistory)
+            if (resetEditHistory)
             {
-                _cropUndoHistory.Clear();
-                _cropRedoHistory.Clear();
+                ClearEditHistory();
             }
 
             _refreshTimer.Stop();
@@ -365,6 +369,13 @@ namespace CodeShot.ToolWindows
             ApplyShape(_cornerRadius, _showShadow);
             ApplyPadding(_padding);
             ApplyTheme();
+            CodeArea.UpdateLayout();
+
+            if (annotationState is not null)
+            {
+                _annotationController.RestoreState(annotationState);
+            }
+
             StatusText.Text = $"Captured '{snapshot.Caption}' and copied it to the clipboard. Add annotations, then copy or save again.";
             UpdateCommandStatus();
         }
@@ -377,8 +388,7 @@ namespace CodeShot.ToolWindows
             }
 
             CancelCrop();
-            _cropUndoHistory.Clear();
-            _cropRedoHistory.Clear();
+            ClearEditHistory();
             _capturedToolWindow = null;
             _annotationController.Reset();
             CapturedImage.Source = null;
@@ -757,6 +767,7 @@ namespace CodeShot.ToolWindows
             if (selectionChanged)
             {
                 _highlightedLines.Clear();
+                ClearEditHistory();
                 _annotationController.Reset();
             }
 
@@ -814,6 +825,7 @@ namespace CodeShot.ToolWindows
             _previewTextView = null;
             _previewSpans = Array.Empty<PreviewSpanIdentity>();
             _highlightedLines.Clear();
+            ClearEditHistory();
             _annotationController.Reset();
             _documentTokens = DocumentTokens.Empty;
             TitleText.Text = "No selection";
@@ -1173,22 +1185,22 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            var snapshot = RenderSnapshot(1d);
-            if (snapshot is null)
-            {
-                StatusText.Text = GetRenderFailureMessage("The crop could not be rendered.");
-                return;
-            }
+            _annotationController.CommitTextEdit();
+            RecordEditChange();
 
+            var source = _capturedToolWindow.Image;
             var left = Math.Max(0, (int)Math.Floor(bounds.Left));
             var top = Math.Max(0, (int)Math.Floor(bounds.Top));
-            var right = Math.Min(snapshot.PixelWidth, (int)Math.Ceiling(bounds.Right));
-            var bottom = Math.Min(snapshot.PixelHeight, (int)Math.Ceiling(bounds.Bottom));
-            var cropped = new CroppedBitmap(snapshot, new Int32Rect(left, top, right - left, bottom - top));
+            var right = Math.Min(source.PixelWidth, (int)Math.Ceiling(bounds.Right));
+            var bottom = Math.Min(source.PixelHeight, (int)Math.Ceiling(bounds.Bottom));
+            var cropBounds = new Rect(left, top, right - left, bottom - top);
+            var annotationState = _annotationController.CreateCroppedState(cropBounds);
+            var cropped = new CroppedBitmap(source, new Int32Rect(left, top, right - left, bottom - top));
             cropped.Freeze();
-            PushCropHistory(_cropUndoHistory, new ToolWindowSnapshot(snapshot, caption));
-            _cropRedoHistory.Clear();
-            ShowCapturedImage(new ToolWindowSnapshot(cropped, caption), resetCropHistory: false);
+            ShowCapturedImage(
+                new ToolWindowSnapshot(cropped, caption),
+                resetEditHistory: false,
+                annotationState);
             StatusText.Text = $"Cropped '{caption}'. Press Ctrl+Z to undo, or copy or save the result.";
         }
 
@@ -1252,11 +1264,7 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            if (_annotationController.HandleMouseDown(e))
-            {
-                _cropRedoHistory.Clear();
-            }
-            else if (_capturedToolWindow is null)
+            if (_annotationController.HandleMouseDown(e) == false && _capturedToolWindow is null)
             {
                 ToggleLineHighlight(e);
             }
@@ -1312,8 +1320,8 @@ namespace CodeShot.ToolWindows
         internal bool CanCrop => _capturedToolWindow is not null;
         internal bool HasHighlights => _highlightedLines.Count > 0;
         internal bool HasAnnotations => _annotationController.HasAnnotations;
-        internal bool CanUndoAnnotation => _annotationController.CanUndo || _cropUndoHistory.Count > 0;
-        internal bool CanRedoAnnotation => _annotationController.CanRedo || _cropRedoHistory.Count > 0;
+        internal bool CanUndoAnnotation => _annotationController.CanUndoText || _editUndoHistory.Count > 0;
+        internal bool CanRedoAnnotation => _annotationController.CanRedoText || _editRedoHistory.Count > 0;
         internal AnnotationMode ActiveAnnotationMode => _annotationController.Mode;
 
         internal void SetAnnotationMode(AnnotationMode mode)
@@ -1341,65 +1349,96 @@ namespace CodeShot.ToolWindows
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            if (_annotationController.CanUndo)
+            if (_annotationController.CanUndoText)
             {
-                _annotationController.Undo();
+                _annotationController.UndoText();
                 return;
             }
 
-            RestoreCropHistory(_cropUndoHistory, _cropRedoHistory, "Undid crop.");
+            RestoreEditHistory(_editUndoHistory, _editRedoHistory, "Undid edit.");
         }
 
         internal void RedoAnnotation()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            if (_annotationController.CanRedo)
+            if (_annotationController.CanRedoText)
             {
-                _annotationController.Redo();
+                _annotationController.RedoText();
                 return;
             }
 
-            RestoreCropHistory(_cropRedoHistory, _cropUndoHistory, "Redid crop.");
+            RestoreEditHistory(_editRedoHistory, _editUndoHistory, "Redid edit.");
         }
 
-        private void RestoreCropHistory(
-            List<ToolWindowSnapshot> sourceHistory,
-            List<ToolWindowSnapshot> destinationHistory,
+        private void OnAnnotationsChanging()
+            => RecordEditChange();
+
+        private void RecordEditChange()
+        {
+            if (HasPreview == false)
+            {
+                return;
+            }
+
+            PushEditHistory(_editUndoHistory, CaptureEditState());
+            _editRedoHistory.Clear();
+            UpdateCommandStatus();
+        }
+
+        private PreviewEditState CaptureEditState()
+            => new PreviewEditState(_capturedToolWindow, _annotationController.CaptureState());
+
+        private void RestoreEditHistory(
+            List<PreviewEditState> sourceHistory,
+            List<PreviewEditState> destinationHistory,
             string status)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            if (_capturedToolWindow is null || sourceHistory.Count == 0)
+            if (sourceHistory.Count == 0)
             {
                 return;
             }
 
             CancelCrop();
-            var current = RenderSnapshot(1d);
-            if (current is null)
+            PushEditHistory(destinationHistory, CaptureEditState());
+            var index = sourceHistory.Count - 1;
+            var state = sourceHistory[index];
+            sourceHistory.RemoveAt(index);
+
+            if (state.Snapshot is ToolWindowSnapshot snapshot)
             {
-                StatusText.Text = GetRenderFailureMessage("The crop history could not be rendered.");
-                return;
+                ShowCapturedImage(snapshot, resetEditHistory: false, state.Annotations);
+            }
+            else
+            {
+                _annotationController.RestoreState(state.Annotations);
             }
 
-            PushCropHistory(destinationHistory, new ToolWindowSnapshot(current, _capturedToolWindow.Caption));
-            var index = sourceHistory.Count - 1;
-            var snapshot = sourceHistory[index];
-            sourceHistory.RemoveAt(index);
-            ShowCapturedImage(snapshot, resetCropHistory: false);
             StatusText.Text = status;
             UpdateCommandStatus();
         }
 
-        private static void PushCropHistory(List<ToolWindowSnapshot> history, ToolWindowSnapshot snapshot)
+        private static void PushEditHistory(List<PreviewEditState> history, PreviewEditState state)
         {
-            if (history.Count >= CropHistoryLimit)
+            if (history.Count >= EditHistoryLimit)
             {
                 history.RemoveAt(0);
             }
 
-            history.Add(snapshot);
+            history.Add(state);
+        }
+
+        private void ClearEditHistory()
+        {
+            _editUndoHistory.Clear();
+            _editRedoHistory.Clear();
+
+            if (IsLoaded)
+            {
+                UpdateCommandStatus();
+            }
         }
 
         // The preview is one text block of uniform monospaced lines, so the line height follows
@@ -2064,6 +2103,18 @@ namespace CodeShot.ToolWindows
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 StatusText.Text = userMessage;
             }
+        }
+
+        private sealed class PreviewEditState
+        {
+            internal PreviewEditState(ToolWindowSnapshot? snapshot, AnnotationController.State annotations)
+            {
+                Snapshot = snapshot;
+                Annotations = annotations;
+            }
+
+            internal ToolWindowSnapshot? Snapshot { get; }
+            internal AnnotationController.State Annotations { get; }
         }
 
         private readonly struct PreviewSpanIdentity
