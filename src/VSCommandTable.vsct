@@ -185,7 +185,7 @@
 
       <Button guid="CodeShot" id="SelectAnnotationCommand" priority="0x0100" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
-        <Icon guid="ImageCatalogGuid" id="Edit" />
+        <Icon guid="ImageCatalogGuid" id="Cursor" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DefaultDisabled</CommandFlag>
         <CommandFlag>FixMenuController</CommandFlag>
@@ -198,6 +198,8 @@
 
       <Button guid="CodeShot" id="RectangleAnnotationCommand" priority="0x0200" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="OutlinedRectangle" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
           <ButtonText>Rectangle</ButtonText>
@@ -208,6 +210,8 @@
 
       <Button guid="CodeShot" id="ArrowAnnotationCommand" priority="0x0300" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="LineArrow" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
           <ButtonText>Arrow</ButtonText>
@@ -218,6 +222,8 @@
 
       <Button guid="CodeShot" id="HighlightAnnotationCommand" priority="0x0400" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Highlighter" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
           <ButtonText>Highlighter</ButtonText>
@@ -228,6 +234,8 @@
 
       <Button guid="CodeShot" id="TextAnnotationCommand" priority="0x0500" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="NewTextAnnotation" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
           <ButtonText>Text</ButtonText>
@@ -238,6 +246,8 @@
 
       <Button guid="CodeShot" id="RedactAnnotationCommand" priority="0x0600" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="FilledRectangle" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
           <ButtonText>Redact</ButtonText>
@@ -248,6 +258,8 @@
 
       <Button guid="CodeShot" id="EraserAnnotationCommand" priority="0x0700" type="Button">
         <Parent guid="CodeShot" id="AnnotationMenuToolsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Eraser" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
           <ButtonText>Eraser</ButtonText>
