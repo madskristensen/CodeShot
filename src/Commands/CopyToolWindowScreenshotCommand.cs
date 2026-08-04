@@ -10,6 +10,7 @@ namespace CodeShot.Commands
         {
             try
             {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 var snapshot = await ToolWindowCapture.CaptureCurrentAsync();
                 if (snapshot is null)
                 {
@@ -21,6 +22,7 @@ namespace CodeShot.Commands
                     return;
                 }
 
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 CodeShotToolWindowControl.CopyImageToClipboard(snapshot.Image);
                 CodeShotToolWindowControl.ShowCapturedImageWhenReady(snapshot);
                 await CodeShotToolWindow.ShowAsync();

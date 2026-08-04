@@ -19,6 +19,11 @@ namespace CodeShot.ToolWindows
         internal static async Task<ToolWindowSnapshot?> CaptureCurrentAsync()
         {
             var monitorSelection = await VS.GetServiceAsync<SVsShellMonitorSelection, IVsMonitorSelection>();
+            if (monitorSelection is null)
+            {
+                return null;
+            }
+
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             var result = monitorSelection.GetCurrentElementValue(
@@ -60,8 +65,8 @@ namespace CodeShot.ToolWindows
             }
 
             // Let the shell dismiss and repaint beneath its context menu before copying the frame.
-            await Dispatcher.CurrentDispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
 
             var visualMask = CreateVisualMask(chromeBounds, captureBounds, contentBounds);
             var bitmap = CaptureScreen(
@@ -733,6 +738,8 @@ namespace CodeShot.ToolWindows
 
         private static string GetCaption(IVsWindowFrame frame)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             if (ErrorHandler.Succeeded(frame.GetProperty((int)__VSFPROPID.VSFPROPID_Caption, out var caption))
                 && caption is string text
                 && string.IsNullOrWhiteSpace(text) == false)

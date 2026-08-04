@@ -8,10 +8,10 @@ namespace CodeShot.Commands
         protected override void BeforeQueryStatus(EventArgs e)
             => Command.Enabled = CodeShotToolWindowControl.Current is not null;
 
-        protected override Task ExecuteAsync(OleMenuCmdEventArgs e)
+        protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             CodeShotToolWindowControl.Current?.CopyImage();
-            return Task.CompletedTask;
         }
     }
 }

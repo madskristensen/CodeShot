@@ -245,6 +245,7 @@ namespace CodeShot.ToolWindows
         // so registration has to be repeatable instead of a one-time setup.
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             Current = this;
 
             VSColorTheme.ThemeChanged -= OnThemeChanged;
@@ -295,6 +296,7 @@ namespace CodeShot.ToolWindows
 
         internal static void ShowCapturedImageWhenReady(ToolWindowSnapshot snapshot)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             _pendingToolWindowSnapshot = snapshot;
 
             if (Current is CodeShotToolWindowControl control)
@@ -398,6 +400,8 @@ namespace CodeShot.ToolWindows
 
         internal void CopyImage()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             try
             {
                 if (_annotationController.CopyText())
