@@ -16,50 +16,39 @@ namespace CodeShot.ToolWindows
         public const double MaximumSize = 96;
 
         private static readonly object SyncRoot = new object();
+        private static readonly IReadOnlyList<string> FallbackFamilies = new[] { FallbackFamily };
 
-        private static IReadOnlyList<string>? _families;
-        private static Dictionary<string, string>? _familyLookup;
+        private static volatile IReadOnlyList<string>? _families;
         private static Task<List<string>>? _monospaceFamiliesTask;
 
         public static IReadOnlyList<double> Sizes { get; } = new double[] { 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32 };
 
-        // Scanning the installed fonts builds a GlyphTypeface per family, which loads font files from
-        // disk. Starting it early keeps that work off the UI thread, where the list is first needed by
-        // the toolbar drop-down and the options page. Callers that can wait should await the returned
-        // task so they never hit the synchronous join in Families.
-        public static Task PrimeAsync()
+        // Scanning the installed fonts builds a GlyphTypeface per family and loads font files from
+        // disk. Until the background scan completes, synchronous UI callers receive the fallback
+        // immediately instead of joining the scan and freezing Visual Studio.
+        public static async Task PrimeAsync()
         {
-            return GetMonospaceFamiliesAsync();
+            var families = await GetMonospaceFamiliesAsync();
+            _families = families.Count > 0 ? families : FallbackFamilies;
         }
 
         public static IReadOnlyList<string> Families
         {
             get
             {
-                if (_families is not null)
-                {
-                    return _families;
-                }
-
-                // The scan runs on the thread pool and never needs the main thread, so joining it here
-                // cannot deadlock. It is normally already finished because it is primed at package load.
-                var families = ThreadHelper.JoinableTaskFactory.Run(GetMonospaceFamiliesAsync).ToList();
+                var families = _families ?? FallbackFamilies;
                 var editorFamily = GetEditorFont().family;
 
-                if (!string.IsNullOrWhiteSpace(editorFamily) && !families.Contains(editorFamily, StringComparer.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(editorFamily)
+                    || families.Contains(editorFamily, StringComparer.OrdinalIgnoreCase))
                 {
-                    families.Add(editorFamily);
-                    families.Sort(StringComparer.OrdinalIgnoreCase);
+                    return families;
                 }
 
-                if (families.Count == 0)
-                {
-                    families.Add(FallbackFamily);
-                }
-
-                _familyLookup = families.ToDictionary(name => name, StringComparer.OrdinalIgnoreCase);
-                _families = families;
-                return _families;
+                var combined = families.ToList();
+                combined.Add(editorFamily);
+                combined.Sort(StringComparer.OrdinalIgnoreCase);
+                return combined;
             }
         }
 
@@ -109,22 +98,26 @@ namespace CodeShot.ToolWindows
         public static string ResolveFamily(string? family)
         {
             var families = Families;
-            var lookup = _familyLookup!;
+            var match = family is null
+                ? null
+                : families.FirstOrDefault(name => string.Equals(name, family, StringComparison.OrdinalIgnoreCase));
 
-            if (family is not null && lookup.TryGetValue(family, out var match))
+            if (match is not null)
             {
                 return match;
             }
 
-            return lookup.TryGetValue(FallbackFamily, out var fallback) ? fallback : families[0];
+            return families.FirstOrDefault(name => string.Equals(name, FallbackFamily, StringComparison.OrdinalIgnoreCase))
+                ?? families[0];
         }
 
         public static bool TryParseSize(string? text, out double size)
         {
             var trimmed = text?.Trim();
 
-            if (double.TryParse(trimmed, NumberStyles.Float, CultureInfo.CurrentCulture, out size)
-                || double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out size))
+            if ((double.TryParse(trimmed, NumberStyles.Float, CultureInfo.CurrentCulture, out size)
+                    || double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out size))
+                && IsFinite(size))
             {
                 size = ClampSize(size);
                 return true;
@@ -135,10 +128,15 @@ namespace CodeShot.ToolWindows
         }
 
         public static string FormatSize(double size)
-            => size.ToString("0.##", CultureInfo.CurrentCulture);
+            => ClampSize(size).ToString("0.##", CultureInfo.CurrentCulture);
 
         public static double ClampSize(double size)
-            => size <= 0 ? FallbackSize : Math.Min(MaximumSize, Math.Max(MinimumSize, size));
+            => IsFinite(size) == false || size <= 0
+                ? FallbackSize
+                : Math.Min(MaximumSize, Math.Max(MinimumSize, size));
+
+        private static bool IsFinite(double value)
+            => double.IsNaN(value) == false && double.IsInfinity(value) == false;
 
         private static bool IsMonospace(FontFamily fontFamily)
         {

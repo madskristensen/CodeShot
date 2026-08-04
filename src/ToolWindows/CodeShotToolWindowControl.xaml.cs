@@ -2030,12 +2030,16 @@ namespace CodeShot.ToolWindows
         }
 
         private static double ClampExportScale(double value)
-            => value <= 0 ? 1d : Math.Min(8d, value);
+            => double.IsNaN(value) || double.IsInfinity(value) || value <= 0
+                ? 1d
+                : Math.Min(8d, value);
 
         // Below one the lines overlap and above three the code stops reading as a block, and either
         // way the highlight overlays are sized from the line height and would no longer line up.
         private static double ClampLineHeight(double value)
-            => value <= 0 ? 1.45d : Math.Min(3d, Math.Max(1d, value));
+            => double.IsNaN(value) || double.IsInfinity(value) || value <= 0
+                ? 1.45d
+                : Math.Min(3d, Math.Max(1d, value));
 
         private void SaveOptions()
         {
