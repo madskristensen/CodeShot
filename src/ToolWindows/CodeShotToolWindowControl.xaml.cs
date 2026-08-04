@@ -249,6 +249,7 @@ namespace CodeShot.ToolWindows
             CodeArea.PreviewMouseMove -= OnCodeAreaMouseMove;
             CodeArea.PreviewMouseLeftButtonUp -= OnCodeAreaMouseUp;
             CodeArea.SizeChanged -= OnCodeAreaSizeChanged;
+            CaptureSurface.SizeChanged -= OnCaptureSurfaceSizeChanged;
             DetachFromSelectionChanges();
         }
 
@@ -267,6 +268,8 @@ namespace CodeShot.ToolWindows
             CodeArea.PreviewMouseLeftButtonUp += OnCodeAreaMouseUp;
             CodeArea.SizeChanged -= OnCodeAreaSizeChanged;
             CodeArea.SizeChanged += OnCodeAreaSizeChanged;
+            CaptureSurface.SizeChanged -= OnCaptureSurfaceSizeChanged;
+            CaptureSurface.SizeChanged += OnCaptureSurfaceSizeChanged;
             VSColorTheme.ThemeChanged -= OnThemeChanged;
             VSColorTheme.ThemeChanged += OnThemeChanged;
             General.Saved -= OnOptionsSaved;
@@ -374,6 +377,7 @@ namespace CodeShot.ToolWindows
             ApplyPadding(_padding);
             ApplyTheme();
             CodeArea.UpdateLayout();
+            UpdateScreenshotDimensions();
 
             if (annotationState is not null)
             {
@@ -838,6 +842,7 @@ namespace CodeShot.ToolWindows
             TitleText.Text = "No selection";
             StatusText.Text = "Select code in the editor to update the preview.";
             UpdatePreviewText();
+            UpdateScreenshotDimensions();
         }
 
         private bool IsPreviewSelectionChanged(IWpfTextView textView, IReadOnlyList<SnapshotSpan> spans)
@@ -949,6 +954,8 @@ namespace CodeShot.ToolWindows
                 return null;
             }
 
+            _annotationController.SetSelectionAdornersVisible(false);
+
             try
             {
                 var pixelWidth = Math.Max(1, (int)pixelWidthValue);
@@ -976,6 +983,10 @@ namespace CodeShot.ToolWindows
                 _ = ex.LogAsync();
                 _lastRenderFailure = "The screenshot could not be rendered within available memory.";
                 return null;
+            }
+            finally
+            {
+                _annotationController.SetSelectionAdornersVisible(true);
             }
         }
 
@@ -1084,6 +1095,22 @@ namespace CodeShot.ToolWindows
         {
             UpdateHighlightLayers();
             _annotationController.HandleSurfaceSizeChanged();
+        }
+
+        private void OnCaptureSurfaceSizeChanged(object sender, SizeChangedEventArgs e)
+            => UpdateScreenshotDimensions();
+
+        private void UpdateScreenshotDimensions()
+        {
+            if (HasPreview == false || CaptureSurface.ActualWidth <= 0 || CaptureSurface.ActualHeight <= 0)
+            {
+                DimensionsText.Text = string.Empty;
+                return;
+            }
+
+            var width = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualWidth * _exportScale));
+            var height = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualHeight * _exportScale));
+            DimensionsText.Text = $"Screenshot: {width} x {height} px";
         }
 
         private void OnZoomChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -1953,6 +1980,7 @@ namespace CodeShot.ToolWindows
             }
 
             ApplyTheme();
+            UpdateScreenshotDimensions();
         }
 
         // An unusable value in the options page must not break the preview, so the previous color is kept.

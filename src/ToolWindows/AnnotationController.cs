@@ -11,22 +11,30 @@ namespace CodeShot.ToolWindows
     internal sealed class AnnotationController
     {
         private const double MinimumAnnotationSize = 3;
+        private const double SelectionHandleSize = 8;
+        private const double SelectionHitTolerance = 8;
 
         private readonly FrameworkElement _surface;
         private readonly Canvas _layer;
         private readonly Action<string> _setStatus;
         private readonly List<CodeAnnotation> _annotations = new List<CodeAnnotation>();
+        private readonly List<UIElement> _selectionAdorners = new List<UIElement>();
         private Point? _start;
         private AnnotationKind? _draftKind;
         private FrameworkElement? _draft;
         private TextBox? _textEditor;
         private Point _textPosition;
+        private int _selectedIndex = -1;
+        private Point? _selectionDragStart;
+        private CodeAnnotation? _selectionOriginal;
+        private SelectionDragMode _selectionDragMode;
 
         internal AnnotationController(FrameworkElement surface, Canvas layer, Action<string> setStatus)
         {
             _surface = surface;
             _layer = layer;
             _setStatus = setStatus;
+            _surface.LostMouseCapture += OnSurfaceLostMouseCapture;
         }
 
         internal event Action? Changing;
@@ -48,7 +56,15 @@ namespace CodeShot.ToolWindows
         {
             CommitTextEdit();
             CancelDraft();
+            CancelSelectionDrag(restoreOriginal: true);
             Mode = mode;
+
+            if (mode != AnnotationMode.Select)
+            {
+                _selectedIndex = -1;
+                Refresh();
+            }
+
             _surface.Cursor = mode switch
             {
                 AnnotationMode.Rectangle => Cursors.Cross,
@@ -67,7 +83,7 @@ namespace CodeShot.ToolWindows
                 AnnotationMode.Text => "Text tool active. Click where the note should appear.",
                 AnnotationMode.Redact => "Redact tool active. Drag across sensitive content to cover it.",
                 AnnotationMode.Eraser => "Eraser active. Click an annotation to remove it.",
-                _ => "Select mode active. Click a line to highlight it."
+                _ => "Select mode active. Drag an annotation to move it, or drag a handle to resize it."
             });
         }
 
@@ -75,7 +91,7 @@ namespace CodeShot.ToolWindows
         {
             if (Mode == AnnotationMode.Select)
             {
-                return false;
+                return BeginSelectionDrag(e);
             }
 
             var point = Clamp(e.GetPosition(_surface));
@@ -113,6 +129,12 @@ namespace CodeShot.ToolWindows
 
         internal void HandleMouseMove(MouseEventArgs e)
         {
+            if (Mode == AnnotationMode.Select)
+            {
+                UpdateSelectionDrag(e);
+                return;
+            }
+
             if (_start is null || _draft is null || e.LeftButton != MouseButtonState.Pressed)
             {
                 return;
@@ -124,6 +146,12 @@ namespace CodeShot.ToolWindows
 
         internal void HandleMouseUp(MouseButtonEventArgs e)
         {
+            if (Mode == AnnotationMode.Select)
+            {
+                CompleteSelectionDrag(e);
+                return;
+            }
+
             if (_start is null || _draftKind is null)
             {
                 return;
@@ -177,6 +205,8 @@ namespace CodeShot.ToolWindows
         {
             CancelTextEdit();
             CancelDraft();
+            CancelSelectionDrag();
+            _selectedIndex = -1;
             _annotations.Clear();
             Refresh();
         }
@@ -233,6 +263,8 @@ namespace CodeShot.ToolWindows
         {
             CancelTextEdit();
             CancelDraft();
+            CancelSelectionDrag();
+            _selectedIndex = -1;
             _annotations.Clear();
             _annotations.AddRange(state.Annotations);
             Refresh();
@@ -265,16 +297,36 @@ namespace CodeShot.ToolWindows
         internal void Refresh()
         {
             _layer.Children.Clear();
+            _selectionAdorners.Clear();
 
             foreach (var annotation in _annotations)
             {
                 _layer.Children.Add(CreateElement(annotation, false));
             }
 
+            if (_selectedIndex >= 0 && _selectedIndex < _annotations.Count)
+            {
+                AddSelectionAdorners(_annotations[_selectedIndex]);
+            }
+            else
+            {
+                _selectedIndex = -1;
+            }
+
             if (_textEditor is not null)
             {
                 _layer.Children.Add(_textEditor);
                 PositionElement(_textEditor, _textPosition);
+            }
+        }
+
+        internal void SetSelectionAdornersVisible(bool visible)
+        {
+            var visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+
+            foreach (var adorner in _selectionAdorners)
+            {
+                adorner.Visibility = visibility;
             }
         }
 
@@ -383,24 +435,179 @@ namespace CodeShot.ToolWindows
 
         private void Erase(Point point)
         {
+            var index = FindAnnotation(point);
+
+            if (index >= 0)
+            {
+                Changing?.Invoke();
+                _annotations.RemoveAt(index);
+                _selectedIndex = -1;
+                Refresh();
+                _setStatus("Annotation removed.");
+                return;
+            }
+
+            _setStatus("No annotation at that point.");
+        }
+
+        private bool BeginSelectionDrag(MouseButtonEventArgs e)
+        {
+            var point = Clamp(e.GetPosition(_surface));
+            var dragMode = GetSelectionResizeMode(point);
+
+            if (dragMode == SelectionDragMode.None)
+            {
+                _selectedIndex = FindAnnotation(point);
+
+                if (_selectedIndex < 0)
+                {
+                    Refresh();
+                    _surface.Cursor = Cursors.Arrow;
+                    return false;
+                }
+
+                dragMode = SelectionDragMode.Move;
+                Refresh();
+            }
+
+            _selectionDragStart = point;
+            _selectionOriginal = _annotations[_selectedIndex];
+            _selectionDragMode = dragMode;
+            _surface.Cursor = GetSelectionCursor(dragMode);
+            _surface.CaptureMouse();
+            SetSelectedAnnotationStatus();
+            e.Handled = true;
+            return true;
+        }
+
+        private void UpdateSelectionDrag(MouseEventArgs e)
+        {
+            var point = Clamp(e.GetPosition(_surface));
+
+            if (_selectionDragStart is null || _selectionOriginal is null || e.LeftButton != MouseButtonState.Pressed)
+            {
+                if (_selectionDragStart is not null)
+                {
+                    CancelSelectionDrag(restoreOriginal: true);
+                }
+
+                var hoverMode = GetSelectionResizeMode(point);
+                _surface.Cursor = GetSelectionCursor(hoverMode != SelectionDragMode.None
+                    ? hoverMode
+                    : FindAnnotation(point) >= 0 ? SelectionDragMode.Move : SelectionDragMode.None);
+                return;
+            }
+
+            if (_selectedIndex < 0 || _selectedIndex >= _annotations.Count)
+            {
+                CancelSelectionDrag();
+                return;
+            }
+
+            var updated = ResizeOrMoveAnnotation(_selectionOriginal, _selectionDragStart.Value, point, _selectionDragMode);
+            var current = _annotations[_selectedIndex];
+
+            if (updated.Start == current.Start && updated.End == current.End)
+            {
+                return;
+            }
+
+            _annotations[_selectedIndex] = updated;
+            Refresh();
+            e.Handled = true;
+        }
+
+        private void CompleteSelectionDrag(MouseButtonEventArgs e)
+        {
+            if (_selectionDragStart is null)
+            {
+                return;
+            }
+
+            var dragMode = _selectionDragMode;
+            var original = _selectionOriginal;
+            var changed = original is not null
+                && _selectedIndex >= 0
+                && _selectedIndex < _annotations.Count
+                && (_annotations[_selectedIndex].Start != original.Start || _annotations[_selectedIndex].End != original.End);
+
+            if (changed)
+            {
+                var updated = _annotations[_selectedIndex];
+                _annotations[_selectedIndex] = original!;
+                Changing?.Invoke();
+                _annotations[_selectedIndex] = updated;
+                Refresh();
+            }
+
+            CancelSelectionDrag();
+
+            if (changed)
+            {
+                _setStatus(dragMode == SelectionDragMode.Move ? "Annotation moved." : "Annotation resized.");
+            }
+            else
+            {
+                SetSelectedAnnotationStatus();
+            }
+
+            e.Handled = true;
+        }
+
+        private void CancelSelectionDrag(bool restoreOriginal = false)
+        {
+            if (restoreOriginal
+                && _selectionOriginal is not null
+                && _selectedIndex >= 0
+                && _selectedIndex < _annotations.Count)
+            {
+                _annotations[_selectedIndex] = _selectionOriginal;
+                Refresh();
+            }
+
+            _selectionDragStart = null;
+            _selectionOriginal = null;
+            _selectionDragMode = SelectionDragMode.None;
+
+            if (ReferenceEquals(Mouse.Captured, _surface))
+            {
+                _surface.ReleaseMouseCapture();
+            }
+        }
+
+        private void OnSurfaceLostMouseCapture(object sender, MouseEventArgs e)
+        {
+            if (_selectionDragStart is not null)
+            {
+                CancelSelectionDrag(restoreOriginal: true);
+            }
+        }
+
+        private void SetSelectedAnnotationStatus()
+        {
+            _setStatus(_selectedIndex >= 0
+                && _selectedIndex < _annotations.Count
+                && _annotations[_selectedIndex].Kind == AnnotationKind.Text
+                    ? "Text callout selected. Drag to move it."
+                    : "Annotation selected. Drag to move it, or drag a handle to resize it.");
+        }
+
+        private int FindAnnotation(Point point)
+        {
             for (var index = _annotations.Count - 1; index >= 0; index--)
             {
                 var annotation = _annotations[index];
                 var isHit = annotation.Kind == AnnotationKind.Arrow
-                    ? DistanceToSegment(point, annotation.Start, annotation.End) <= 8
+                    ? DistanceToSegment(point, annotation.Start, annotation.End) <= SelectionHitTolerance
                     : IsInsideInflatedBounds(point, annotation.Bounds);
 
                 if (isHit)
                 {
-                    Changing?.Invoke();
-                    _annotations.RemoveAt(index);
-                    Refresh();
-                    _setStatus("Annotation removed.");
-                    return;
+                    return index;
                 }
             }
 
-            _setStatus("No annotation at that point.");
+            return -1;
         }
 
         private static bool IsInsideInflatedBounds(Point point, Rect bounds)
@@ -423,6 +630,170 @@ namespace CodeShot.ToolWindows
             var projection = Math.Max(0, Math.Min(1, ((offset.X * segment.X) + (offset.Y * segment.Y)) / lengthSquared));
             var closest = start + (segment * projection);
             return (point - closest).Length;
+        }
+
+        private SelectionDragMode GetSelectionResizeMode(Point point)
+        {
+            if (_selectedIndex < 0 || _selectedIndex >= _annotations.Count)
+            {
+                return SelectionDragMode.None;
+            }
+
+            var annotation = _annotations[_selectedIndex];
+
+            if (annotation.Kind == AnnotationKind.Text)
+            {
+                return SelectionDragMode.None;
+            }
+
+            if (annotation.Kind == AnnotationKind.Arrow)
+            {
+                if (IsNear(point, annotation.Start))
+                {
+                    return SelectionDragMode.Start;
+                }
+
+                return IsNear(point, annotation.End) ? SelectionDragMode.End : SelectionDragMode.None;
+            }
+
+            var bounds = annotation.Bounds;
+
+            if (IsNear(point, bounds.TopLeft))
+            {
+                return SelectionDragMode.TopLeft;
+            }
+
+            if (IsNear(point, bounds.TopRight))
+            {
+                return SelectionDragMode.TopRight;
+            }
+
+            if (IsNear(point, bounds.BottomLeft))
+            {
+                return SelectionDragMode.BottomLeft;
+            }
+
+            return IsNear(point, bounds.BottomRight) ? SelectionDragMode.BottomRight : SelectionDragMode.None;
+        }
+
+        private static bool IsNear(Point point, Point target)
+            => (point - target).Length <= SelectionHitTolerance;
+
+        private static Cursor GetSelectionCursor(SelectionDragMode mode)
+        {
+            return mode switch
+            {
+                SelectionDragMode.Move => Cursors.SizeAll,
+                SelectionDragMode.TopLeft => Cursors.SizeNWSE,
+                SelectionDragMode.BottomRight => Cursors.SizeNWSE,
+                SelectionDragMode.TopRight => Cursors.SizeNESW,
+                SelectionDragMode.BottomLeft => Cursors.SizeNESW,
+                SelectionDragMode.Start => Cursors.Cross,
+                SelectionDragMode.End => Cursors.Cross,
+                _ => Cursors.Arrow
+            };
+        }
+
+        private CodeAnnotation ResizeOrMoveAnnotation(
+            CodeAnnotation annotation,
+            Point dragStart,
+            Point point,
+            SelectionDragMode mode)
+        {
+            if (mode == SelectionDragMode.Move)
+            {
+                var moveBounds = annotation.Bounds;
+                var delta = point - dragStart;
+                var minimumX = Math.Min(0, Math.Min(-moveBounds.Left, _surface.ActualWidth - moveBounds.Right));
+                var maximumX = Math.Max(0, Math.Max(-moveBounds.Left, _surface.ActualWidth - moveBounds.Right));
+                var minimumY = Math.Min(0, Math.Min(-moveBounds.Top, _surface.ActualHeight - moveBounds.Bottom));
+                var maximumY = Math.Max(0, Math.Max(-moveBounds.Top, _surface.ActualHeight - moveBounds.Bottom));
+                delta.X = Math.Max(minimumX, Math.Min(maximumX, delta.X));
+                delta.Y = Math.Max(minimumY, Math.Min(maximumY, delta.Y));
+                return new CodeAnnotation(annotation.Kind, annotation.Start + delta, annotation.End + delta, annotation.Text);
+            }
+
+            if (annotation.Kind == AnnotationKind.Arrow)
+            {
+                var start = mode == SelectionDragMode.Start ? point : annotation.Start;
+                var end = mode == SelectionDragMode.End ? point : annotation.End;
+                return (end - start).Length >= MinimumAnnotationSize
+                    ? new CodeAnnotation(annotation.Kind, start, end, annotation.Text)
+                    : annotation;
+            }
+
+            var bounds = annotation.Bounds;
+            var opposite = mode switch
+            {
+                SelectionDragMode.TopLeft => bounds.BottomRight,
+                SelectionDragMode.TopRight => bounds.BottomLeft,
+                SelectionDragMode.BottomLeft => bounds.TopRight,
+                _ => bounds.TopLeft
+            };
+            var resized = GetBounds(point, opposite);
+
+            return resized.Width >= MinimumAnnotationSize && resized.Height >= MinimumAnnotationSize
+                ? new CodeAnnotation(annotation.Kind, resized.TopLeft, resized.BottomRight, annotation.Text)
+                : annotation;
+        }
+
+        private void AddSelectionAdorners(CodeAnnotation annotation)
+        {
+            if (annotation.Kind != AnnotationKind.Arrow)
+            {
+                var outline = new Rectangle
+                {
+                    Width = annotation.Bounds.Width,
+                    Height = annotation.Bounds.Height,
+                    Fill = Brushes.Transparent,
+                    Stroke = SystemColors.HighlightBrush,
+                    StrokeThickness = 1,
+                    StrokeDashArray = new DoubleCollection { 4, 2 },
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(outline, annotation.Bounds.Left);
+                Canvas.SetTop(outline, annotation.Bounds.Top);
+                AddSelectionAdorner(outline);
+            }
+
+            if (annotation.Kind == AnnotationKind.Arrow)
+            {
+                AddSelectionHandle(annotation.Start);
+                AddSelectionHandle(annotation.End);
+                return;
+            }
+
+            if (annotation.Kind == AnnotationKind.Text)
+            {
+                return;
+            }
+
+            AddSelectionHandle(annotation.Bounds.TopLeft);
+            AddSelectionHandle(annotation.Bounds.TopRight);
+            AddSelectionHandle(annotation.Bounds.BottomLeft);
+            AddSelectionHandle(annotation.Bounds.BottomRight);
+        }
+
+        private void AddSelectionHandle(Point point)
+        {
+            var handle = new Rectangle
+            {
+                Width = SelectionHandleSize,
+                Height = SelectionHandleSize,
+                Fill = SystemColors.WindowBrush,
+                Stroke = SystemColors.HighlightBrush,
+                StrokeThickness = 1,
+                IsHitTestVisible = false
+            };
+            Canvas.SetLeft(handle, point.X - (SelectionHandleSize / 2));
+            Canvas.SetTop(handle, point.Y - (SelectionHandleSize / 2));
+            AddSelectionAdorner(handle);
+        }
+
+        private void AddSelectionAdorner(UIElement adorner)
+        {
+            _selectionAdorners.Add(adorner);
+            _layer.Children.Add(adorner);
         }
 
         private void AddAnnotation(CodeAnnotation annotation)
@@ -592,6 +963,18 @@ namespace CodeShot.ToolWindows
         private static Brush AnnotationBrush { get; } = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
         private static Brush HighlightBrush { get; } = new SolidColorBrush(Color.FromArgb(0x70, 0xFF, 0xEB, 0x3B));
         private static Brush CalloutBackgroundBrush { get; } = new SolidColorBrush(Color.FromRgb(0xFF, 0xF8, 0xE1));
+
+        private enum SelectionDragMode
+        {
+            None,
+            Move,
+            Start,
+            End,
+            TopLeft,
+            TopRight,
+            BottomLeft,
+            BottomRight
+        }
 
         private sealed class DraftArrow : Canvas
         {

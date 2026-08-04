@@ -31,9 +31,10 @@ Studio.
 ## Annotate and redact before sharing
 
 Use the **Annotate** menu to point at an expression, add a note, highlight an
-identifier or cover sensitive content. Click a line in Select mode to emphasize
-it and dim the surrounding code. **Ctrl+Z** and **Ctrl+Y** undo and redo each
-annotation change.
+identifier or cover sensitive content. In Select mode, drag an annotation to move
+it or drag its handles to resize it. Clicking a line without selecting an annotation
+emphasizes it and dims the surrounding code. **Ctrl+Z** and **Ctrl+Y** undo and
+redo each annotation change.
 
 Redactions are baked into the exported PNG. When one is present, CodeShot also
 omits the unredacted plain-text clipboard format.
@@ -68,10 +69,11 @@ image is captured from its on-screen pixels.
 
 ## Customize and export
 
-The toolbar controls font, size, line numbers, title bar and indentation. Use the
-status-bar slider or **Ctrl+mouse wheel** to zoom the preview without changing the
-exported image. **Tools > Options > CodeShot > General** contains appearance and
-export settings, all remembered between sessions.
+The toolbar controls font, size, line numbers, title bar and indentation. The
+status bar shows the exported screenshot dimensions. Use its slider or
+**Ctrl+mouse wheel** to zoom the preview without changing the exported image.
+**Tools > Options > CodeShot > General** contains appearance and export settings,
+all remembered between sessions.
 
 ![Options](art/options.png)
 
