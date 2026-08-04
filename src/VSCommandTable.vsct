@@ -43,6 +43,10 @@
         <Parent guid="VSMainMenu" id="Tools"/>
       </Group>
 
+      <Group guid="CodeShot" id="ToolWindowContextGroup" priority="0x0180">
+        <Parent guid="VSMainMenu" id="IDM_VS_CTXT_DOCKEDWINDOW" />
+      </Group>
+
       <Group guid="CodeShot" id="ToolbarActionsGroup" priority="0x0100">
         <Parent guid="CodeShot" id="CodeShotToolbar" />
       </Group>
@@ -90,8 +94,19 @@
         <Icon guid="ImageCatalogGuid" id="Camera" />
         <CommandFlag>IconIsMoniker</CommandFlag>
         <Strings>
-          <ButtonText>CodeShot</ButtonText>
-          <LocCanonicalName>.CodeShot.Open</LocCanonicalName>
+          <ButtonText>Take Screenshot</ButtonText>
+          <LocCanonicalName>.CodeShot.TakeTextEditorScreenshot</LocCanonicalName>
+        </Strings>
+      </Button>
+
+      <Button guid="CodeShot" id="CopyToolWindowScreenshotCommand" priority="0x0100" type="Button">
+        <Parent guid="CodeShot" id="ToolWindowContextGroup" />
+        <Icon guid="ImageCatalogGuid" id="Camera" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>Take Screenshot</ButtonText>
+          <ToolTipText>Open a screenshot of this tool window in CodeShot</ToolTipText>
+          <LocCanonicalName>.CodeShot.TakeToolWindowScreenshot</LocCanonicalName>
         </Strings>
       </Button>
 
@@ -355,7 +370,9 @@
   <Symbols>
     <GuidSymbol name="CodeShot" value="{a7a7b4b8-f629-4a80-9156-c3dcaae4256a}">
       <IDSymbol name="MyMenuGroup" value="0x0001" />
+      <IDSymbol name="ToolWindowContextGroup" value="0x0002" />
       <IDSymbol name="ShowCodeShotWindowCommand" value="0x0100" />
+      <IDSymbol name="CopyToolWindowScreenshotCommand" value="0x0101" />
 
       <IDSymbol name="CodeShotToolbar" value="0x1000" />
       <IDSymbol name="ToolbarActionsGroup" value="0x1010" />

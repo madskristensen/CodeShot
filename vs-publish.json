@@ -18,6 +18,10 @@
     {
       "pathOnDisk": "art/annotations.png",
       "targetPath": "art/annotations.png"
+    },
+    {
+      "pathOnDisk": "art/tool-window-context-menu.png",
+      "targetPath": "art/tool-window-context-menu.png"
     }
   ],
   "overview": "README.md",

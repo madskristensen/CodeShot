@@ -22,6 +22,7 @@ Studio.
 
 - Captures the current selection with Visual Studio syntax colors.
 - Copies immediately to the clipboard or saves a high-resolution PNG.
+- Captures any visible tool window, including its frame, for annotation and export.
 - Draws rectangles, arrows, expression highlights and text callouts.
 - Redacts sensitive values before the image leaves Visual Studio.
 - Customizes fonts, line numbers, title bar, window controls, colors, gradients,
@@ -42,11 +43,26 @@ omits the unredacted plain-text clipboard format.
 ## Getting started
 
 1. Select code in the editor.
-2. Choose **Tools > CodeShot** or press **Ctrl+Shift+P**.
+2. Choose **Tools > Take Screenshot** or press **Ctrl+Shift+P**.
 3. Adjust the preview, then press **Ctrl+C** to copy or **Ctrl+S** to save.
 
 Opening CodeShot copies the initial screenshot automatically. Later selection
 changes update the preview without replacing the clipboard.
+
+To capture another tool window, right-click its title bar and choose **Take
+Screenshot**. The screenshot is copied immediately and opens in CodeShot so
+rectangles, arrows, highlights, text and redactions can be added before copying
+or saving it again. Use **Refresh Preview** to return to the current editor
+selection.
+
+CodeShot captures the visible shell frame, including its title and active tab,
+plus any Win32 or WebView content. Other tabs in the same docking group are
+excluded, and the shell's WPF geometry makes pixels outside the rounded frame
+transparent across Visual Studio themes. Tool-window captures do not add
+CodeShot's backdrop, padding or shadow. Keep the frame unobscured because the
+image is captured from its on-screen pixels.
+
+![Tool-window capture](art/tool-window-context-menu.png)
 
 ## Customize and export
 

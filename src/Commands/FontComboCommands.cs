@@ -20,7 +20,7 @@ namespace CodeShot.Commands
         {
             if (RequiresToolWindow)
             {
-                Command.Enabled = CodeShotToolWindowControl.Current is not null;
+                Command.Enabled = CodeShotToolWindowControl.Current?.SupportsCodeFormatting == true;
             }
         }
 

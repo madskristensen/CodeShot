@@ -15,6 +15,7 @@ namespace CodeShot
     {
         public const string CodeShotString = "a7a7b4b8-f629-4a80-9156-c3dcaae4256a";
         public static Guid CodeShot = new Guid(CodeShotString);
+
         public const string CodeShotToolWindowString = "ce9b4700-7154-4196-9957-858230f19734";
         public static Guid CodeShotToolWindow = new Guid(CodeShotToolWindowString);
     }
@@ -25,7 +26,9 @@ namespace CodeShot
     internal sealed partial class PackageIds
     {
         public const int MyMenuGroup = 0x0001;
+        public const int ToolWindowContextGroup = 0x0002;
         public const int ShowCodeShotWindowCommand = 0x0100;
+        public const int CopyToolWindowScreenshotCommand = 0x0101;
         public const int CodeShotToolbar = 0x1000;
         public const int ToolbarActionsGroup = 0x1010;
         public const int ToolbarFontGroup = 0x1020;

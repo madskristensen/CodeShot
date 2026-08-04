@@ -8,7 +8,7 @@ namespace CodeShot.Commands
         protected override void BeforeQueryStatus(EventArgs e)
         {
             var control = CodeShotToolWindowControl.Current;
-            Command.Enabled = control is not null;
+            Command.Enabled = control?.SupportsCodeFormatting == true;
             Command.Checked = control?.ShowTitleBar == true;
         }
 

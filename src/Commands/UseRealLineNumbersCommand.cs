@@ -9,8 +9,8 @@ namespace CodeShot.Commands
         {
             var control = CodeShotToolWindowControl.Current;
 
-            // Numbering only matters when the numbers are visible in the first place.
-            Command.Enabled = control?.ShowLineNumbers == true;
+            // Numbering only matters for code previews when the numbers are visible.
+            Command.Enabled = control?.SupportsCodeFormatting == true && control.ShowLineNumbers;
             Command.Checked = control?.UseRealLineNumbers == true;
         }
 

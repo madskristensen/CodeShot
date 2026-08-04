@@ -97,6 +97,16 @@
                                     Panel.ZIndex="0"
                                     IsHitTestVisible="False" />
 
+                                <Image
+                                    x:Name="CapturedImage"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="3"
+                                    Panel.ZIndex="1"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Stretch="None"
+                                    Visibility="Collapsed" />
+
                                 <TextBlock
                                     Grid.Column="0"
                                     Panel.ZIndex="1"

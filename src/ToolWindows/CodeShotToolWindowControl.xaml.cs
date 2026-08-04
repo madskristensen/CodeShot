@@ -36,6 +36,7 @@ namespace CodeShot.ToolWindows
         private readonly AnnotationController _annotationController;
         private string _selectedCode = string.Empty;
         private int _selectedLineCount;
+        private ToolWindowSnapshot? _capturedToolWindow;
         private IReadOnlyList<Inline>? _classifiedInlines;
         private WeakReference<IWpfTextView>? _previewTextView;
         private PreviewSpanIdentity[] _previewSpans = Array.Empty<PreviewSpanIdentity>();
@@ -73,6 +74,7 @@ namespace CodeShot.ToolWindows
         // The control is created and loaded asynchronously, so the request from the command is held
         // here until whichever refresh comes next has built a preview worth copying.
         private static bool _copyWhenReady;
+        private static ToolWindowSnapshot? _pendingToolWindowSnapshot;
 
         public CodeShotToolWindowControl(General options)
         {
@@ -95,6 +97,7 @@ namespace CodeShot.ToolWindows
 
         // The toolbar commands live in the package, so they need a way to reach the active preview.
         internal static CodeShotToolWindowControl? Current { get; private set; }
+        internal bool SupportsCodeFormatting => _capturedToolWindow is null;
 
         internal bool ShowLineNumbers
         {
@@ -157,7 +160,9 @@ namespace CodeShot.ToolWindows
                 }
 
                 _showTitleBar = value;
-                TitleBarBorder.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+                TitleBarBorder.Visibility = value && _capturedToolWindow is null
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
                 SaveOptions();
             }
         }
@@ -251,6 +256,19 @@ namespace CodeShot.ToolWindows
 
             ApplyTheme();
 
+            if (_pendingToolWindowSnapshot is ToolWindowSnapshot pendingSnapshot)
+            {
+                _pendingToolWindowSnapshot = null;
+                ShowCapturedImage(pendingSnapshot);
+                return;
+            }
+
+            // Rehosting must not replace an image that is currently being annotated.
+            if (_capturedToolWindow is not null)
+            {
+                return;
+            }
+
             // The settings were applied when the control was created, and the applied values survive
             // being rehosted, so only the preview itself has to be rebuilt here.
             RunSafe(
@@ -260,6 +278,7 @@ namespace CodeShot.ToolWindows
 
         internal void Refresh()
         {
+            ExitCapturedImageMode();
             RunSafe(
                 RefreshFromSelectionAsync,
                 "Could not refresh from the current selection.");
@@ -272,6 +291,109 @@ namespace CodeShot.ToolWindows
         {
             _copyWhenReady = true;
             Current?.Refresh();
+        }
+
+        internal static void ShowCapturedImageWhenReady(ToolWindowSnapshot snapshot)
+        {
+            _pendingToolWindowSnapshot = snapshot;
+
+            if (Current is CodeShotToolWindowControl control)
+            {
+                _pendingToolWindowSnapshot = null;
+                control.ShowCapturedImage(snapshot);
+            }
+        }
+
+        private void ShowCapturedImage(ToolWindowSnapshot snapshot)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            _refreshTimer.Stop();
+            DetachFromSelectionChanges();
+            _capturedToolWindow = snapshot;
+            _selectedCode = string.Empty;
+            _selectedLineCount = 0;
+            _classifiedInlines = null;
+            _previewTextView = null;
+            _previewSpans = Array.Empty<PreviewSpanIdentity>();
+            _highlightedLines.Clear();
+            _annotationController.Reset();
+            _documentTokens = DocumentTokens.Empty;
+
+            SetPreviewPlainText(string.Empty);
+            LineNumbersText.Text = string.Empty;
+            LineNumbersText.Visibility = Visibility.Collapsed;
+            PreviewText.Visibility = Visibility.Collapsed;
+            HighlightLayer.Visibility = Visibility.Collapsed;
+            DimLayer.Visibility = Visibility.Collapsed;
+            CapturedImage.Source = snapshot.Image;
+            CapturedImage.Width = snapshot.Image.PixelWidth;
+            CapturedImage.Height = snapshot.Image.PixelHeight;
+            CapturedImage.Visibility = Visibility.Visible;
+            CodeArea.Width = snapshot.Image.PixelWidth;
+            CodeArea.Height = snapshot.Image.PixelHeight;
+            CodeArea.Margin = new Thickness(0);
+            SnapshotFrame.MinWidth = 0;
+            SnapshotFrame.Background = Brushes.Transparent;
+            SnapshotFrame.BorderThickness = new Thickness(0);
+            TitleBarBorder.Visibility = Visibility.Collapsed;
+            ApplyShape(_cornerRadius, _showShadow);
+            ApplyPadding(_padding);
+            ApplyTheme();
+            StatusText.Text = $"Captured '{snapshot.Caption}' and copied it to the clipboard. Add annotations, then copy or save again.";
+            UpdateCommandStatus();
+        }
+
+        private void ExitCapturedImageMode()
+        {
+            if (_capturedToolWindow is null)
+            {
+                return;
+            }
+
+            _capturedToolWindow = null;
+            _annotationController.Reset();
+            CapturedImage.Source = null;
+            CapturedImage.Visibility = Visibility.Collapsed;
+            CapturedImage.ClearValue(WidthProperty);
+            CapturedImage.ClearValue(HeightProperty);
+            CodeArea.ClearValue(WidthProperty);
+            CodeArea.ClearValue(HeightProperty);
+            CodeArea.Margin = new Thickness(16, 0, 16, 16);
+            SnapshotFrame.MinWidth = 320;
+            SnapshotFrame.BorderThickness = new Thickness(1);
+            PreviewText.Visibility = Visibility.Visible;
+            HighlightLayer.Visibility = Visibility.Visible;
+            DimLayer.Visibility = Visibility.Visible;
+            TitleBarBorder.Visibility = _showTitleBar ? Visibility.Visible : Visibility.Collapsed;
+            ApplyShape(_cornerRadius, _showShadow);
+            ApplyPadding(_padding);
+            ApplyTheme();
+        }
+
+        internal static void CopyImageToClipboard(BitmapSource snapshot, string? plainText = null)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            var data = new DataObject();
+            data.SetImage(snapshot);
+
+            if (string.IsNullOrEmpty(plainText) == false)
+            {
+                data.SetText(plainText);
+            }
+
+            // WPF's standard bitmap clipboard format drops alpha in many paste targets. The PNG
+            // format preserves transparency while SetImage remains as a compatibility fallback.
+            using (var png = new MemoryStream())
+            {
+                EncodePng(snapshot, png);
+                png.Position = 0;
+                data.SetData("PNG", png, false);
+
+                // Copying the data keeps the image on the clipboard after Visual Studio exits.
+                Clipboard.SetDataObject(data, true);
+            }
         }
 
         internal void CopyImage()
@@ -290,23 +412,14 @@ namespace CodeShot.ToolWindows
                     return;
                 }
 
-                var data = new DataObject();
-                data.SetImage(snapshot);
-
                 // Pasting an image loses the code itself, which is the long-standing complaint about
                 // code screenshots. A redaction must also suppress the original text, otherwise an
                 // app that prefers text could receive the sensitive value hidden in the image.
                 var includePlainText = _copyPlainTextWithImage
                     && _annotationController.HasRedactions == false
                     && !string.IsNullOrEmpty(_selectedCode);
+                CopyImageToClipboard(snapshot, includePlainText ? _selectedCode : null);
 
-                if (includePlainText)
-                {
-                    data.SetText(_selectedCode);
-                }
-
-                // Copying the data keeps the image on the clipboard after Visual Studio exits.
-                Clipboard.SetDataObject(data, true);
                 StatusText.Text = includePlainText
                     ? "Copied screenshot and code to clipboard."
                     : _copyPlainTextWithImage && _annotationController.HasRedactions
@@ -339,12 +452,9 @@ namespace CodeShot.ToolWindows
                     return;
                 }
 
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(snapshot));
-
                 using (var stream = File.Create(path))
                 {
-                    encoder.Save(stream);
+                    EncodePng(snapshot, stream);
                 }
 
                 // The folder is remembered so that the next save starts where the last one landed,
@@ -674,6 +784,13 @@ namespace CodeShot.ToolWindows
             LineNumbersText.Visibility = Visibility.Collapsed;
         }
 
+        private static void EncodePng(BitmapSource snapshot, Stream output)
+        {
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(snapshot));
+            encoder.Save(output);
+        }
+
         private RenderTargetBitmap? RenderSnapshot()
         {
             _annotationController.CommitTextEdit();
@@ -772,8 +889,12 @@ namespace CodeShot.ToolWindows
                 ? Blend(titleBarBackground, Colors.White, 0.05)
                 : Blend(titleBarBackground, Colors.Black, 0.04);
 
-            CaptureSurface.Background = GetCaptureBackgroundBrush(captureBackground);
-            SnapshotFrame.Background = new SolidColorBrush(editorBackground);
+            CaptureSurface.Background = _capturedToolWindow is null
+                ? GetCaptureBackgroundBrush(captureBackground)
+                : Brushes.Transparent;
+            SnapshotFrame.Background = _capturedToolWindow is null
+                ? new SolidColorBrush(editorBackground)
+                : Brushes.Transparent;
             SnapshotFrame.BorderBrush = new SolidColorBrush(frameBorder);
             TitleBarBorder.Background = new SolidColorBrush(titleBarBackground);
             TitleBarBorder.BorderBrush = new SolidColorBrush(titleBarSeparator);
@@ -814,7 +935,7 @@ namespace CodeShot.ToolWindows
 
         private void OnCodeAreaMouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (_selectedLineCount == 0)
+            if (HasPreview == false)
             {
                 return;
             }
@@ -824,7 +945,7 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            if (_annotationController.HandleMouseDown(e) == false)
+            if (_annotationController.HandleMouseDown(e) == false && _capturedToolWindow is null)
             {
                 ToggleLineHighlight(e);
             }
@@ -858,7 +979,7 @@ namespace CodeShot.ToolWindows
             e.Handled = true;
         }
 
-        internal bool HasPreview => _selectedLineCount > 0;
+        internal bool HasPreview => _selectedLineCount > 0 || _capturedToolWindow is not null;
         internal bool HasHighlights => _highlightedLines.Count > 0;
         internal bool HasAnnotations => _annotationController.HasAnnotations;
         internal bool CanUndoAnnotation => _annotationController.CanUndo;
@@ -1285,6 +1406,11 @@ namespace CodeShot.ToolWindows
 
         private void ScheduleRefresh()
         {
+            if (_capturedToolWindow is not null)
+            {
+                return;
+            }
+
             _refreshTimer.Stop();
             _refreshTimer.Start();
         }
@@ -1397,13 +1523,14 @@ namespace CodeShot.ToolWindows
             _cornerRadius = Math.Max(0, Math.Min(40, cornerRadius));
             _showShadow = showShadow;
 
-            SnapshotFrame.CornerRadius = new CornerRadius(_cornerRadius);
-            ShadowHost.CornerRadius = new CornerRadius(_cornerRadius);
-            TitleBarBorder.CornerRadius = new CornerRadius(_cornerRadius, _cornerRadius, 0, 0);
+            var appliedRadius = _capturedToolWindow is null ? _cornerRadius : 0;
+            SnapshotFrame.CornerRadius = new CornerRadius(appliedRadius);
+            ShadowHost.CornerRadius = new CornerRadius(appliedRadius);
+            TitleBarBorder.CornerRadius = new CornerRadius(appliedRadius, appliedRadius, 0, 0);
 
             // The outer surface sits behind the frame, so it needs the larger radius of the two
             // to avoid a square corner peeking out from under a rounded one.
-            CaptureSurface.CornerRadius = new CornerRadius(_cornerRadius == 0 ? 0 : _cornerRadius + 3);
+            CaptureSurface.CornerRadius = new CornerRadius(appliedRadius == 0 ? 0 : appliedRadius + 3);
 
             ApplyShadow();
         }
@@ -1412,7 +1539,7 @@ namespace CodeShot.ToolWindows
         // away and only cost render time.
         private void ApplyShadow()
         {
-            if (_showShadow == false || _padding < ShadowMinimumPadding)
+            if (_capturedToolWindow is not null || _showShadow == false || _padding < ShadowMinimumPadding)
             {
                 ShadowHost.Effect = null;
                 SnapshotFrame.Effect = null;
@@ -1450,7 +1577,7 @@ namespace CodeShot.ToolWindows
         private void ApplyPadding(int padding)
         {
             _padding = Math.Max(0, Math.Min(200, padding));
-            CaptureSurface.Padding = new Thickness(_padding);
+            CaptureSurface.Padding = new Thickness(_capturedToolWindow is null ? _padding : 0);
             ApplyShadow();
         }
 
