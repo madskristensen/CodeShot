@@ -12,16 +12,15 @@ namespace CodeShot.Commands
             Command.Checked = control?.KeepOriginalIndentation == true;
         }
 
-        protected override Task ExecuteAsync(OleMenuCmdEventArgs e)
+        protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             var control = CodeShotToolWindowControl.Current;
 
             if (control is not null)
             {
                 control.KeepOriginalIndentation = !control.KeepOriginalIndentation;
             }
-
-            return Task.CompletedTask;
         }
     }
 }

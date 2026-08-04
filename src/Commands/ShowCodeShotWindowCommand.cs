@@ -6,6 +6,7 @@
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
             await ToolWindows.CodeShotToolWindow.ShowAsync();
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             ToolWindows.CodeShotToolWindowControl.CopyWhenReady();
         }
     }

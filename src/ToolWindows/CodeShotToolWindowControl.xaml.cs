@@ -145,6 +145,8 @@ namespace CodeShot.ToolWindows
             get => _keepOriginalIndentation;
             set
             {
+                ThreadHelper.ThrowIfNotOnUIThread();
+
                 if (_keepOriginalIndentation == value)
                 {
                     return;
@@ -296,6 +298,7 @@ namespace CodeShot.ToolWindows
 
         internal void Refresh()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             ExitCapturedImageMode();
             RunSafe(
                 RefreshFromSelectionAsync,
@@ -307,6 +310,7 @@ namespace CodeShot.ToolWindows
         // because silently replacing the clipboard while the user types would be hostile.
         internal static void CopyWhenReady()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             _copyWhenReady = true;
             Current?.Refresh();
         }
@@ -382,6 +386,8 @@ namespace CodeShot.ToolWindows
 
         private void ExitCapturedImageMode()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             if (_capturedToolWindow is null)
             {
                 return;
@@ -818,6 +824,7 @@ namespace CodeShot.ToolWindows
 
         private void ClearSelectionPreview()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             _selectedCode = string.Empty;
             _selectedLineCount = 0;
             _firstSelectedLineNumber = 1;
@@ -1376,10 +1383,15 @@ namespace CodeShot.ToolWindows
         }
 
         private void OnAnnotationsChanging()
-            => RecordEditChange();
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            RecordEditChange();
+        }
 
         private void RecordEditChange()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             if (HasPreview == false)
             {
                 return;
@@ -1436,6 +1448,7 @@ namespace CodeShot.ToolWindows
 
         private void ClearEditHistory()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             _editUndoHistory.Clear();
             _editRedoHistory.Clear();
 

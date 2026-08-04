@@ -126,8 +126,15 @@ namespace CodeShot.ToolWindows
             var result = monitorSelection.GetCurrentElementValue(
                 (uint)VSConstants.VSSELELEMID.SEID_WindowFrame,
                 out var frameValue);
-            frame = frameValue as IVsWindowFrame;
-            return ErrorHandler.Succeeded(result) && frame is not null;
+
+            if (ErrorHandler.Succeeded(result) && frameValue is IVsWindowFrame currentFrame)
+            {
+                frame = currentFrame;
+                return true;
+            }
+
+            frame = null!;
+            return false;
         }
 
         private static bool TryGetContentBounds(IVsWindowFrame frame, out System.Drawing.Rectangle bounds)
