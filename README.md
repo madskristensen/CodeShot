@@ -68,9 +68,10 @@ image is captured from its on-screen pixels.
 
 ## Customize and export
 
-The toolbar controls font, size, line numbers, title bar and indentation.
-**Tools > Options > CodeShot > General** contains appearance and export settings,
-all remembered between sessions.
+The toolbar controls font, size, line numbers, title bar and indentation. Use the
+status-bar slider or **Ctrl+mouse wheel** to zoom the preview without changing the
+exported image. **Tools > Options > CodeShot > General** contains appearance and
+export settings, all remembered between sessions.
 
 ![Options](art/options.png)
 

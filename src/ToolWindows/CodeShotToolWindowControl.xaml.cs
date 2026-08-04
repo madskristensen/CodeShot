@@ -32,6 +32,7 @@ namespace CodeShot.ToolWindows
         private const int ShadowMinimumPadding = 5;
         private const double CropEdgeSnapDistance = 12;
         private const int CropHistoryLimit = 10;
+        private const double ZoomStep = 10;
 
         private readonly DispatcherTimer _refreshTimer;
         private readonly HashSet<int> _highlightedLines = new HashSet<int>();
@@ -956,6 +957,35 @@ namespace CodeShot.ToolWindows
         {
             UpdateHighlightLayers();
             _annotationController.HandleSurfaceSizeChanged();
+        }
+
+        private void OnZoomChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var scale = e.NewValue / 100;
+            ZoomTransform.ScaleX = scale;
+            ZoomTransform.ScaleY = scale;
+        }
+
+        private void OnZoomOutClick(object sender, RoutedEventArgs e)
+            => ChangeZoom(-ZoomStep);
+
+        private void OnZoomInClick(object sender, RoutedEventArgs e)
+            => ChangeZoom(ZoomStep);
+
+        private void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Control) == 0 || e.Delta == 0)
+            {
+                return;
+            }
+
+            ChangeZoom(e.Delta > 0 ? ZoomStep : -ZoomStep);
+            e.Handled = true;
+        }
+
+        private void ChangeZoom(double change)
+        {
+            ZoomSlider.Value = Math.Max(ZoomSlider.Minimum, Math.Min(ZoomSlider.Maximum, ZoomSlider.Value + change));
         }
 
         internal void BeginCrop()
