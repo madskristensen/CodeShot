@@ -476,15 +476,12 @@ namespace CodeShot.ToolWindows
                 var fileName = _documentTokens.ExpandFileName(_saveFileNameTemplate, "codeshot");
                 var folder = GetSaveFolder();
 
-                if (TryGetSavePath(fileName, folder, out var path) == false)
+                if (TryGetSavePath(fileName, folder, out var path, out var overwrite) == false)
                 {
                     return;
                 }
 
-                using (var stream = File.Create(path))
-                {
-                    EncodePng(snapshot, stream);
-                }
+                path = SavePngAtomically(snapshot, path, overwrite);
 
                 // The folder is remembered so that the next save starts where the last one landed,
                 // which is what the dialog would have done on its own before it could be skipped.
@@ -518,13 +515,14 @@ namespace CodeShot.ToolWindows
             }
         }
 
-        private bool TryGetSavePath(string fileName, string folder, out string path)
+        private bool TryGetSavePath(string fileName, string folder, out string path, out bool overwrite)
         {
             // Saving without asking needs somewhere to put the file, so a missing or unusable folder
             // falls back to the dialog rather than dropping the image somewhere unexpected.
             if (_promptForSaveLocation == false && folder.Length > 0)
             {
-                path = GetUniquePath(folder, fileName);
+                path = Path.Combine(folder, fileName + ".png");
+                overwrite = false;
                 return true;
             }
 
@@ -544,11 +542,70 @@ namespace CodeShot.ToolWindows
             if (dialog.ShowDialog() != true)
             {
                 path = string.Empty;
+                overwrite = false;
                 return false;
             }
 
             path = dialog.FileName;
+            overwrite = true;
             return true;
+        }
+
+        private string SavePngAtomically(BitmapSource snapshot, string path, bool overwrite)
+        {
+            var folder = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(folder))
+            {
+                throw new InvalidOperationException("The save path does not contain a folder.");
+            }
+
+            var fileName = Path.GetFileNameWithoutExtension(path);
+            var temporaryPath = Path.Combine(folder, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+
+            try
+            {
+                using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    EncodePng(snapshot, stream);
+                    stream.Flush(true);
+                }
+
+                if (overwrite)
+                {
+                    if (File.Exists(path))
+                    {
+                        File.Replace(temporaryPath, path, null);
+                    }
+                    else
+                    {
+                        File.Move(temporaryPath, path);
+                    }
+
+                    return path;
+                }
+
+                for (var attempt = 0; attempt < 10; attempt++)
+                {
+                    var candidate = GetUniquePath(folder, fileName);
+
+                    try
+                    {
+                        File.Move(temporaryPath, candidate);
+                        return candidate;
+                    }
+                    catch (IOException ex) when (File.Exists(candidate))
+                    {
+                        // Another process won the unique-name race. Recalculate and retry without overwriting it.
+                        _ = ex.LogAsync();
+                    }
+                }
+
+                throw new IOException("Could not reserve a unique screenshot file name.");
+            }
+            finally
+            {
+                DeleteTemporaryFile(temporaryPath);
+            }
         }
 
         // The dialog asks before it replaces a file, and skipping the dialog must not quietly lose
@@ -570,6 +627,21 @@ namespace CodeShot.ToolWindows
             }
 
             return candidate;
+        }
+
+        private static void DeleteTemporaryFile(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = ex.LogAsync();
+            }
         }
 
         private void RememberSaveFolder(string? folder)
