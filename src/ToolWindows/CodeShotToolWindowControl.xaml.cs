@@ -1320,8 +1320,12 @@ namespace CodeShot.ToolWindows
         internal bool CanCrop => _capturedToolWindow is not null;
         internal bool HasHighlights => _highlightedLines.Count > 0;
         internal bool HasAnnotations => _annotationController.HasAnnotations;
-        internal bool CanUndoAnnotation => _annotationController.CanUndoText || _editUndoHistory.Count > 0;
-        internal bool CanRedoAnnotation => _annotationController.CanRedoText || _editRedoHistory.Count > 0;
+        internal bool CanUndoAnnotation => _annotationController.IsEditingText
+            ? _annotationController.CanUndoText
+            : _editUndoHistory.Count > 0;
+        internal bool CanRedoAnnotation => _annotationController.IsEditingText
+            ? _annotationController.CanRedoText
+            : _editRedoHistory.Count > 0;
         internal AnnotationMode ActiveAnnotationMode => _annotationController.Mode;
 
         internal void SetAnnotationMode(AnnotationMode mode)
@@ -1349,7 +1353,7 @@ namespace CodeShot.ToolWindows
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            if (_annotationController.CanUndoText)
+            if (_annotationController.IsEditingText)
             {
                 _annotationController.UndoText();
                 return;
@@ -1362,7 +1366,7 @@ namespace CodeShot.ToolWindows
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            if (_annotationController.CanRedoText)
+            if (_annotationController.IsEditingText)
             {
                 _annotationController.RedoText();
                 return;

@@ -35,6 +35,7 @@ namespace CodeShot.ToolWindows
         internal AnnotationMode Mode { get; private set; }
         internal bool HasAnnotations => _annotations.Count > 0;
         internal bool HasRedactions => _annotations.Exists(annotation => annotation.Kind == AnnotationKind.Redaction);
+        internal bool IsEditingText => _textEditor is not null;
         internal bool CanUndoText => _textEditor?.CanUndo == true;
         internal bool CanRedoText => _textEditor?.CanRedo == true;
 
@@ -205,18 +206,33 @@ namespace CodeShot.ToolWindows
 
             foreach (var annotation in _annotations)
             {
-                // Partially clipping arrows and text would change their meaning or reflow the callout,
-                // so only annotations wholly inside the retained area survive the crop.
-                if (cropBounds.Contains(annotation.Bounds) == false)
+                if (annotation.Kind == AnnotationKind.Rectangle
+                    || annotation.Kind == AnnotationKind.Highlight
+                    || annotation.Kind == AnnotationKind.Redaction)
                 {
+                    var clippedBounds = Rect.Intersect(annotation.Bounds, cropBounds);
+                    if (clippedBounds.IsEmpty == false)
+                    {
+                        annotations.Add(new CodeAnnotation(
+                            annotation.Kind,
+                            TranslateToCrop(clippedBounds.TopLeft, cropBounds),
+                            TranslateToCrop(clippedBounds.BottomRight, cropBounds),
+                            annotation.Text));
+                    }
+
                     continue;
                 }
 
-                annotations.Add(new CodeAnnotation(
-                    annotation.Kind,
-                    TranslateToCrop(annotation.Start, cropBounds),
-                    TranslateToCrop(annotation.End, cropBounds),
-                    annotation.Text));
+                // Partially clipping arrows and text would change their meaning or reflow the callout,
+                // so only those wholly inside the retained area survive the crop.
+                if (cropBounds.Contains(annotation.Bounds))
+                {
+                    annotations.Add(new CodeAnnotation(
+                        annotation.Kind,
+                        TranslateToCrop(annotation.Start, cropBounds),
+                        TranslateToCrop(annotation.End, cropBounds),
+                        annotation.Text));
+                }
             }
 
             return new State(annotations);
