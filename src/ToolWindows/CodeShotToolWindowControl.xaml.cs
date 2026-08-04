@@ -94,10 +94,6 @@ namespace CodeShot.ToolWindows
                 Interval = SelectionRefreshDelay
             };
             _refreshTimer.Tick += OnRefreshTimerTick;
-            CodeArea.PreviewMouseLeftButtonDown += OnCodeAreaMouseDown;
-            CodeArea.PreviewMouseMove += OnCodeAreaMouseMove;
-            CodeArea.PreviewMouseLeftButtonUp += OnCodeAreaMouseUp;
-            CodeArea.SizeChanged += OnCodeAreaSizeChanged;
             ApplyOptions(options);
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
@@ -256,6 +252,14 @@ namespace CodeShot.ToolWindows
             ThreadHelper.ThrowIfNotOnUIThread();
             Current = this;
 
+            CodeArea.PreviewMouseLeftButtonDown -= OnCodeAreaMouseDown;
+            CodeArea.PreviewMouseLeftButtonDown += OnCodeAreaMouseDown;
+            CodeArea.PreviewMouseMove -= OnCodeAreaMouseMove;
+            CodeArea.PreviewMouseMove += OnCodeAreaMouseMove;
+            CodeArea.PreviewMouseLeftButtonUp -= OnCodeAreaMouseUp;
+            CodeArea.PreviewMouseLeftButtonUp += OnCodeAreaMouseUp;
+            CodeArea.SizeChanged -= OnCodeAreaSizeChanged;
+            CodeArea.SizeChanged += OnCodeAreaSizeChanged;
             VSColorTheme.ThemeChanged -= OnThemeChanged;
             VSColorTheme.ThemeChanged += OnThemeChanged;
             General.Saved -= OnOptionsSaved;
