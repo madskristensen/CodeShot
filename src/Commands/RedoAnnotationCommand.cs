@@ -10,10 +10,10 @@ namespace CodeShot.Commands
             Command.Enabled = CodeShotToolWindowControl.Current?.CanRedoAnnotation == true;
         }
 
-        protected override Task ExecuteAsync(OleMenuCmdEventArgs e)
+        protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             CodeShotToolWindowControl.Current?.RedoAnnotation();
-            return Task.CompletedTask;
         }
     }
 }

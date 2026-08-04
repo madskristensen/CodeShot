@@ -50,10 +50,12 @@ Opening CodeShot copies the initial screenshot automatically. Later selection
 changes update the preview without replacing the clipboard.
 
 To capture another tool window, right-click its title bar and choose **Take
-Screenshot**. The screenshot is copied immediately and opens in CodeShot so
-rectangles, arrows, highlights, text and redactions can be added before copying
-or saving it again. Use **Refresh Preview** to return to the current editor
-selection.
+Screenshot**. The screenshot is copied immediately and opens in CodeShot so it
+can be cropped or annotated with rectangles, arrows, highlights, text and
+redactions before copying or saving it again. Use **Refresh Preview** to return
+to the current editor selection. Cropping is limited to tool-window captures;
+text snapshots use the editor selection as their natural crop. Crop points near
+an image edge snap into place, and **Ctrl+Z** and **Ctrl+Y** undo and redo crops.
 
 CodeShot captures the visible shell frame, including its title and active tab,
 plus any Win32 or WebView content. Other tabs in the same docking group are

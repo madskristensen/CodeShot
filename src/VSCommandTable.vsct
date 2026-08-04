@@ -122,6 +122,18 @@
         </Strings>
       </Button>
 
+      <Button guid="CodeShot" id="CropImageCommand" priority="0x0180" type="Button">
+        <Parent guid="CodeShot" id="ToolbarActionsGroup" />
+        <Icon guid="ImageCatalogGuid" id="ImageCrop" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DefaultDisabled</CommandFlag>
+        <Strings>
+          <ButtonText>Crop Tool Window Capture</ButtonText>
+          <ToolTipText>Drag to crop the captured tool window</ToolTipText>
+          <LocCanonicalName>.CodeShot.CropToolWindowCapture</LocCanonicalName>
+        </Strings>
+      </Button>
+
       <Button guid="CodeShot" id="CopyImageCommand" priority="0x0200" type="Button">
         <Parent guid="CodeShot" id="ToolbarActionsGroup" />
         <Icon guid="ImageCatalogGuid" id="Copy" />
@@ -301,8 +313,8 @@
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
-          <ButtonText>Undo Annotation</ButtonText>
-          <ToolTipText>Undo the last annotation change</ToolTipText>
+          <ButtonText>Undo</ButtonText>
+          <ToolTipText>Undo the last annotation or crop</ToolTipText>
           <LocCanonicalName>.CodeShot.UndoAnnotation</LocCanonicalName>
         </Strings>
       </Button>
@@ -313,8 +325,8 @@
         <CommandFlag>IconIsMoniker</CommandFlag>
         <CommandFlag>DefaultDisabled</CommandFlag>
         <Strings>
-          <ButtonText>Redo Annotation</ButtonText>
-          <ToolTipText>Redo the last undone annotation change</ToolTipText>
+          <ButtonText>Redo</ButtonText>
+          <ToolTipText>Redo the last undone annotation or crop</ToolTipText>
           <LocCanonicalName>.CodeShot.RedoAnnotation</LocCanonicalName>
         </Strings>
       </Button>
@@ -405,6 +417,7 @@
       <IDSymbol name="TextAnnotationCommand" value="0x0230" />
       <IDSymbol name="UndoAnnotationCommand" value="0x0240" />
       <IDSymbol name="RedoAnnotationCommand" value="0x0250" />
+      <IDSymbol name="CropImageCommand" value="0x0260" />
       <IDSymbol name="OpenOptionsCommand" value="0x0180" />
 
       <IDSymbol name="FontFamilyCombo" value="0x0160" />

@@ -139,6 +139,15 @@
                                     Panel.ZIndex="3"
                                     ClipToBounds="True"
                                     IsHitTestVisible="False" />
+
+                                <Canvas
+                                    x:Name="CropLayer"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="3"
+                                    Panel.ZIndex="4"
+                                    ClipToBounds="True"
+                                    IsHitTestVisible="False"
+                                    Visibility="Collapsed" />
                             </Grid>
                         </Grid>
                     </Border>
