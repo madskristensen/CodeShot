@@ -33,6 +33,8 @@ namespace CodeShot.ToolWindows
         private const double CropEdgeSnapDistance = 12;
         private const int CropHistoryLimit = 10;
         private const double ZoomStep = 10;
+        private const int MaximumRenderDimension = 16384;
+        private const long MaximumRenderPixelCount = 64_000_000;
 
         private readonly DispatcherTimer _refreshTimer;
         private readonly HashSet<int> _highlightedLines = new HashSet<int>();
@@ -78,6 +80,7 @@ namespace CodeShot.ToolWindows
         private string _saveFolder = string.Empty;
         private string _saveFileNameTemplate = "{fileNameWithoutExtension}";
         private bool _promptForSaveLocation = true;
+        private string _lastRenderFailure = string.Empty;
 
         // The control is created and loaded asynchronously, so the request from the command is held
         // here until whichever refresh comes next has built a preview worth copying.
@@ -436,7 +439,7 @@ namespace CodeShot.ToolWindows
                 var snapshot = RenderSnapshot();
                 if (snapshot is null)
                 {
-                    StatusText.Text = "Nothing to copy yet.";
+                    StatusText.Text = GetRenderFailureMessage("Nothing to copy yet.");
                     return;
                 }
 
@@ -469,7 +472,7 @@ namespace CodeShot.ToolWindows
                 var snapshot = RenderSnapshot();
                 if (snapshot is null)
                 {
-                    StatusText.Text = "Nothing to save yet.";
+                    StatusText.Text = GetRenderFailureMessage("Nothing to save yet.");
                     return;
                 }
 
@@ -897,6 +900,7 @@ namespace CodeShot.ToolWindows
 
         private RenderTargetBitmap? RenderSnapshot(double? requestedScale = null)
         {
+            _lastRenderFailure = string.Empty;
             _annotationController.CommitTextEdit();
 
             // The capture surface sizes to its content rather than to the viewport, so the whole
@@ -912,27 +916,52 @@ namespace CodeShot.ToolWindows
             // The export scale is used instead of the monitor DPI so the same selection produces
             // the same image on every machine, which the monitor DPI alone does not guarantee.
             var scale = requestedScale ?? _exportScale;
-            var pixelWidth = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualWidth * scale));
-            var pixelHeight = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualHeight * scale));
+            var pixelWidthValue = Math.Ceiling(CaptureSurface.ActualWidth * scale);
+            var pixelHeightValue = Math.Ceiling(CaptureSurface.ActualHeight * scale);
 
-            var renderTarget = new RenderTargetBitmap(
-                pixelWidth,
-                pixelHeight,
-                96 * scale,
-                96 * scale,
-                PixelFormats.Pbgra32);
-
-            var drawingVisual = new DrawingVisual();
-            using (var context = drawingVisual.RenderOpen())
+            if (double.IsNaN(scale)
+                || double.IsInfinity(scale)
+                || scale <= 0
+                || pixelWidthValue > MaximumRenderDimension
+                || pixelHeightValue > MaximumRenderDimension
+                || pixelWidthValue * pixelHeightValue > MaximumRenderPixelCount)
             {
-                var brush = new VisualBrush(CaptureSurface);
-                context.DrawRectangle(brush, null, new Rect(new Point(), new Size(CaptureSurface.ActualWidth, CaptureSurface.ActualHeight)));
+                _lastRenderFailure = "The screenshot is too large to render safely. Reduce the selection or export scale.";
+                return null;
             }
 
-            renderTarget.Render(drawingVisual);
-            renderTarget.Freeze();
-            return renderTarget;
+            try
+            {
+                var pixelWidth = Math.Max(1, (int)pixelWidthValue);
+                var pixelHeight = Math.Max(1, (int)pixelHeightValue);
+                var renderTarget = new RenderTargetBitmap(
+                    pixelWidth,
+                    pixelHeight,
+                    96 * scale,
+                    96 * scale,
+                    PixelFormats.Pbgra32);
+
+                var drawingVisual = new DrawingVisual();
+                using (var context = drawingVisual.RenderOpen())
+                {
+                    var brush = new VisualBrush(CaptureSurface);
+                    context.DrawRectangle(brush, null, new Rect(new Point(), new Size(CaptureSurface.ActualWidth, CaptureSurface.ActualHeight)));
+                }
+
+                renderTarget.Render(drawingVisual);
+                renderTarget.Freeze();
+                return renderTarget;
+            }
+            catch (Exception ex)
+            {
+                _ = ex.LogAsync();
+                _lastRenderFailure = "The screenshot could not be rendered within available memory.";
+                return null;
+            }
         }
+
+        private string GetRenderFailureMessage(string fallback)
+            => string.IsNullOrEmpty(_lastRenderFailure) ? fallback : _lastRenderFailure;
 
         private static string BuildLineNumbers(int lineCount, int firstNumber)
         {
@@ -1147,7 +1176,7 @@ namespace CodeShot.ToolWindows
             var snapshot = RenderSnapshot(1d);
             if (snapshot is null)
             {
-                StatusText.Text = "The crop could not be rendered.";
+                StatusText.Text = GetRenderFailureMessage("The crop could not be rendered.");
                 return;
             }
 
@@ -1350,7 +1379,7 @@ namespace CodeShot.ToolWindows
             var current = RenderSnapshot(1d);
             if (current is null)
             {
-                StatusText.Text = "The crop history could not be rendered.";
+                StatusText.Text = GetRenderFailureMessage("The crop history could not be rendered.");
                 return;
             }
 
@@ -1404,29 +1433,46 @@ namespace CodeShot.ToolWindows
             DimLayer.Children.Clear();
 
             var lineHeight = GetLineHeight();
+            var width = CodeArea.ActualWidth;
 
-            if (lineHeight <= 0 || _highlightedLines.Count == 0)
+            if (lineHeight <= 0 || width <= 0 || _highlightedLines.Count == 0)
             {
                 return;
             }
 
-            var width = CodeArea.ActualWidth;
+            var highlightGeometry = new StreamGeometry();
+            var dimGeometry = new StreamGeometry { FillRule = FillRule.EvenOdd };
 
-            for (var index = 0; index < _selectedLineCount; index++)
+            using (var highlightContext = highlightGeometry.Open())
+            using (var dimContext = dimGeometry.Open())
             {
-                var isHighlighted = _highlightedLines.Contains(index);
-                var layer = isHighlighted ? HighlightLayer : DimLayer;
+                AddGeometryRectangle(dimContext, new Rect(0, 0, width, CodeArea.ActualHeight));
 
-                var rectangle = new System.Windows.Shapes.Rectangle
+                foreach (var index in _highlightedLines)
                 {
-                    Width = width,
-                    Height = lineHeight,
-                    Fill = isHighlighted ? _highlightBrush : _dimBrush
-                };
+                    if (index < 0 || index >= _selectedLineCount)
+                    {
+                        continue;
+                    }
 
-                Canvas.SetTop(rectangle, index * lineHeight);
-                layer.Children.Add(rectangle);
+                    var bounds = new Rect(0, index * lineHeight, width, lineHeight);
+                    AddGeometryRectangle(highlightContext, bounds);
+                    AddGeometryRectangle(dimContext, bounds);
+                }
             }
+
+            highlightGeometry.Freeze();
+            dimGeometry.Freeze();
+            HighlightLayer.Children.Add(new System.Windows.Shapes.Path { Data = highlightGeometry, Fill = _highlightBrush });
+            DimLayer.Children.Add(new System.Windows.Shapes.Path { Data = dimGeometry, Fill = _dimBrush });
+        }
+
+        private static void AddGeometryRectangle(StreamGeometryContext context, Rect bounds)
+        {
+            context.BeginFigure(bounds.TopLeft, true, true);
+            context.LineTo(bounds.TopRight, true, false);
+            context.LineTo(bounds.BottomRight, true, false);
+            context.LineTo(bounds.BottomLeft, true, false);
         }
 
         // A transparent surface still has to be hit-testable, otherwise clicks fall through the

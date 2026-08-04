@@ -16,7 +16,7 @@ namespace CodeShot.Commands
                 {
                     await VS.MessageBox.ShowAsync(
                         Vsix.Name,
-                        "Visual Studio did not provide bounds for this tool window.",
+                        "Visual Studio did not provide usable bounds, or the tool window is too large to capture safely.",
                         icon: OLEMSGICON.OLEMSGICON_WARNING,
                         buttons: OLEMSGBUTTON.OLEMSGBUTTON_OK);
                     return;

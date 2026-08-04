@@ -16,6 +16,9 @@ namespace CodeShot.ToolWindows
 {
     internal static class ToolWindowCapture
     {
+        private const int MaximumCaptureDimension = 16384;
+        private const long MaximumCapturePixelCount = 32_000_000;
+
         internal static async Task<ToolWindowSnapshot?> CaptureCurrentAsync()
         {
             var monitorSelection = await VS.GetServiceAsync<SVsShellMonitorSelection, IVsMonitorSelection>();
@@ -64,6 +67,11 @@ namespace CodeShot.ToolWindows
                 captureBounds.Height = Math.Max(captureBounds.Bottom, requiredBottom) - captureBounds.Top;
             }
 
+            if (IsCaptureSizeSupported(captureBounds) == false)
+            {
+                return null;
+            }
+
             // Let the shell dismiss and repaint beneath its context menu before copying the frame.
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
@@ -77,6 +85,13 @@ namespace CodeShot.ToolWindows
                 visualMask);
             return new ToolWindowSnapshot(bitmap, caption);
         }
+
+        private static bool IsCaptureSizeSupported(System.Drawing.Rectangle bounds)
+            => bounds.Width > 0
+                && bounds.Height > 0
+                && bounds.Width <= MaximumCaptureDimension
+                && bounds.Height <= MaximumCaptureDimension
+                && (long)bounds.Width * bounds.Height <= MaximumCapturePixelCount;
 
         private static int IncludeShellFrame(
             ref int x,
