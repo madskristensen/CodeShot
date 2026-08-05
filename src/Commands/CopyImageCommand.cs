@@ -11,7 +11,10 @@ namespace CodeShot.Commands
         protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            CodeShotToolWindowControl.Current?.CopyImage();
+            if (CodeShotToolWindowControl.Current is CodeShotToolWindowControl control)
+            {
+                await control.CopyImageAsync();
+            }
         }
     }
 }

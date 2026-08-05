@@ -36,7 +36,8 @@ namespace CodeShot.Commands
                 }
 
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                CodeShotToolWindowControl.CopyImageToClipboard(snapshot.Image);
+                await CodeShotToolWindowControl.CopyImageToClipboardAsync(snapshot.Image);
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 CodeShotToolWindowControl.ShowCapturedImageWhenReady(snapshot);
                 await CodeShotToolWindow.ShowAsync();
             }

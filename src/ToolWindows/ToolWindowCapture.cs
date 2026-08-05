@@ -569,50 +569,60 @@ namespace CodeShot.ToolWindows
         private static System.Drawing.Rectangle ApplyVisualMask(Bitmap bitmap, byte[] visualMask)
         {
             var bounds = new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height);
-            var opaqueBounds = bounds;
             var data = bitmap.LockBits(bounds, ImageLockMode.ReadWrite, PixelFormat.Format32bppPArgb);
             try
             {
                 var stride = Math.Abs(data.Stride);
-                var pixels = new byte[stride * bitmap.Height];
-                Marshal.Copy(data.Scan0, pixels, 0, pixels.Length);
+                var rowPixels = new byte[stride];
+                var left = bitmap.Width;
+                var top = bitmap.Height;
+                var right = -1;
+                var bottom = -1;
 
                 for (var y = 0; y < bitmap.Height; y++)
                 {
+                    var storageRow = data.Stride < 0 ? bitmap.Height - y - 1 : y;
+                    var rowPointer = IntPtr.Add(data.Scan0, storageRow * stride);
+                    Marshal.Copy(rowPointer, rowPixels, 0, rowPixels.Length);
+
                     for (var x = 0; x < bitmap.Width; x++)
                     {
-                        var bitmapOffset = GetPixelOffset(x, y, bitmap.Height, data.Stride, stride);
+                        var bitmapOffset = x * 4;
                         var maskOffset = ((y * bitmap.Width) + x) * 4;
                         var alpha = visualMask[maskOffset + 3];
 
                         if (alpha == byte.MaxValue)
                         {
-                            pixels[bitmapOffset + 3] = byte.MaxValue;
+                            rowPixels[bitmapOffset + 3] = byte.MaxValue;
                         }
                         else
                         {
-                            pixels[bitmapOffset] = visualMask[maskOffset];
-                            pixels[bitmapOffset + 1] = visualMask[maskOffset + 1];
-                            pixels[bitmapOffset + 2] = visualMask[maskOffset + 2];
-                            pixels[bitmapOffset + 3] = alpha;
+                            rowPixels[bitmapOffset] = visualMask[maskOffset];
+                            rowPixels[bitmapOffset + 1] = visualMask[maskOffset + 1];
+                            rowPixels[bitmapOffset + 2] = visualMask[maskOffset + 2];
+                            rowPixels[bitmapOffset + 3] = alpha;
+                        }
+
+                        if (alpha > 0)
+                        {
+                            left = Math.Min(left, x);
+                            top = Math.Min(top, y);
+                            right = Math.Max(right, x);
+                            bottom = Math.Max(bottom, y);
                         }
                     }
+
+                    Marshal.Copy(rowPixels, 0, rowPointer, rowPixels.Length);
                 }
 
-                opaqueBounds = FindOpaqueBounds(
-                    bitmap.Width,
-                    bitmap.Height,
-                    data.Stride,
-                    stride,
-                    pixels);
-                Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
+                return right < left || bottom < top
+                    ? System.Drawing.Rectangle.Empty
+                    : System.Drawing.Rectangle.FromLTRB(left, top, right + 1, bottom + 1);
             }
             finally
             {
                 bitmap.UnlockBits(data);
             }
-
-            return opaqueBounds;
         }
 
         internal static BitmapSource CaptureScreen(System.Drawing.Rectangle captureBounds)
@@ -624,24 +634,13 @@ namespace CodeShot.ToolWindows
             System.Drawing.Rectangle captureBounds,
             IReadOnlyList<System.Drawing.Rectangle> visibleRegions)
         {
-            var width = captureBounds.Width;
-            var height = captureBounds.Height;
-            var mask = new byte[width * height * 4];
-
-            for (var regionIndex = 0; regionIndex < visibleRegions.Count; regionIndex++)
-            {
-                var region = System.Drawing.Rectangle.Intersect(captureBounds, visibleRegions[regionIndex]);
-                for (var y = region.Top; y < region.Bottom; y++)
-                {
-                    for (var x = region.Left; x < region.Right; x++)
-                    {
-                        var offset = ((((y - captureBounds.Top) * width) + x - captureBounds.Left) * 4) + 3;
-                        mask[offset] = byte.MaxValue;
-                    }
-                }
-            }
-
-            return CaptureScreen(captureBounds, 0, 0, null, mask);
+            return CaptureScreen(
+                captureBounds,
+                0,
+                0,
+                null,
+                null,
+                visibleRegions);
         }
 
         private static BitmapSource CaptureScreen(
@@ -649,7 +648,8 @@ namespace CodeShot.ToolWindows
             int outerInset,
             int cornerRadius,
             System.Drawing.Rectangle? selectedTabBounds,
-            byte[]? visualMask)
+            byte[]? visualMask,
+            IReadOnlyList<System.Drawing.Rectangle>? visibleRegions = null)
         {
             using (var screen = new Bitmap(captureBounds.Width, captureBounds.Height, PixelFormat.Format32bppRgb))
             using (var screenGraphics = Graphics.FromImage(screen))
@@ -665,10 +665,22 @@ namespace CodeShot.ToolWindows
                 using (var bitmap = new Bitmap(captureBounds.Width, captureBounds.Height, PixelFormat.Format32bppPArgb))
                 using (var graphics = Graphics.FromImage(bitmap))
                 {
-                    graphics.DrawImageUnscaled(screen, 0, 0);
+                    if (visibleRegions is null)
+                    {
+                        graphics.DrawImageUnscaled(screen, 0, 0);
+                    }
+
                     System.Drawing.Rectangle opaqueBounds;
 
-                    if (visualMask is not null)
+                    if (visibleRegions is not null)
+                    {
+                        opaqueBounds = ApplyVisibleRegions(
+                            graphics,
+                            screen,
+                            captureBounds,
+                            visibleRegions);
+                    }
+                    else if (visualMask is not null)
                     {
                         graphics.Flush();
                         opaqueBounds = ApplyVisualMask(bitmap, visualMask);
@@ -726,6 +738,45 @@ namespace CodeShot.ToolWindows
                     }
                 }
             }
+        }
+
+        private static System.Drawing.Rectangle ApplyVisibleRegions(
+            Graphics graphics,
+            Bitmap screen,
+            System.Drawing.Rectangle captureBounds,
+            IReadOnlyList<System.Drawing.Rectangle> visibleRegions)
+        {
+            graphics.CompositingMode = CompositingMode.SourceCopy;
+            graphics.Clear(System.Drawing.Color.Transparent);
+            var opaqueBounds = System.Drawing.Rectangle.Empty;
+
+            for (var index = 0; index < visibleRegions.Count; index++)
+            {
+                var screenRegion = System.Drawing.Rectangle.Intersect(
+                    captureBounds,
+                    visibleRegions[index]);
+                if (screenRegion.IsEmpty)
+                {
+                    continue;
+                }
+
+                var localRegion = new System.Drawing.Rectangle(
+                    screenRegion.Left - captureBounds.Left,
+                    screenRegion.Top - captureBounds.Top,
+                    screenRegion.Width,
+                    screenRegion.Height);
+                graphics.DrawImage(
+                    screen,
+                    localRegion,
+                    localRegion,
+                    GraphicsUnit.Pixel);
+                opaqueBounds = opaqueBounds.IsEmpty
+                    ? localRegion
+                    : System.Drawing.Rectangle.Union(opaqueBounds, localRegion);
+            }
+
+            graphics.Flush();
+            return opaqueBounds;
         }
 
         private static void MaskFrameEdges(
@@ -807,59 +858,40 @@ namespace CodeShot.ToolWindows
             try
             {
                 var stride = Math.Abs(data.Stride);
-                var pixels = new byte[stride * bitmap.Height];
-                Marshal.Copy(data.Scan0, pixels, 0, pixels.Length);
-                return FindOpaqueBounds(
-                    bitmap.Width,
-                    bitmap.Height,
-                    data.Stride,
-                    stride,
-                    pixels);
+                var rowPixels = new byte[stride];
+                var left = bitmap.Width;
+                var top = bitmap.Height;
+                var right = -1;
+                var bottom = -1;
+
+                for (var y = 0; y < bitmap.Height; y++)
+                {
+                    var storageRow = data.Stride < 0 ? bitmap.Height - y - 1 : y;
+                    var rowPointer = IntPtr.Add(data.Scan0, storageRow * stride);
+                    Marshal.Copy(rowPointer, rowPixels, 0, rowPixels.Length);
+
+                    for (var x = 0; x < bitmap.Width; x++)
+                    {
+                        if (rowPixels[(x * 4) + 3] == 0)
+                        {
+                            continue;
+                        }
+
+                        left = Math.Min(left, x);
+                        top = Math.Min(top, y);
+                        right = Math.Max(right, x);
+                        bottom = Math.Max(bottom, y);
+                    }
+                }
+
+                return right < left || bottom < top
+                    ? System.Drawing.Rectangle.Empty
+                    : System.Drawing.Rectangle.FromLTRB(left, top, right + 1, bottom + 1);
             }
             finally
             {
                 bitmap.UnlockBits(data);
             }
-        }
-
-        private static System.Drawing.Rectangle FindOpaqueBounds(
-            int width,
-            int height,
-            int signedStride,
-            int stride,
-            byte[] pixels)
-        {
-            var left = width;
-            var top = height;
-            var right = -1;
-            var bottom = -1;
-
-            for (var y = 0; y < height; y++)
-            {
-                for (var x = 0; x < width; x++)
-                {
-                    var offset = GetPixelOffset(x, y, height, signedStride, stride);
-                    if (pixels[offset + 3] == 0)
-                    {
-                        continue;
-                    }
-
-                    left = Math.Min(left, x);
-                    top = Math.Min(top, y);
-                    right = Math.Max(right, x);
-                    bottom = Math.Max(bottom, y);
-                }
-            }
-
-            return right < left || bottom < top
-                ? System.Drawing.Rectangle.Empty
-                : System.Drawing.Rectangle.FromLTRB(left, top, right + 1, bottom + 1);
-        }
-
-        private static int GetPixelOffset(int x, int y, int height, int signedStride, int stride)
-        {
-            var row = signedStride < 0 ? height - y - 1 : y;
-            return (row * stride) + (x * 4);
         }
 
         private readonly struct ToolWindowChromeBounds

@@ -250,11 +250,7 @@ namespace CodeShot.ToolWindows
             ref Rectangle? captureBounds,
             List<Rectangle> captureRegions)
         {
-            var itemCondition = new AndCondition(
-                new PropertyCondition(AutomationElement.ProcessIdProperty, processId),
-                new PropertyCondition(AutomationElement.IsOffscreenProperty, false),
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.MenuItem));
-            var items = AutomationElement.RootElement.FindAll(TreeScope.Descendants, itemCondition);
+            var items = FindVisibleMenuItems(processId);
             var itemBounds = new List<Rectangle>();
             var seedBounds = new List<Rectangle>();
 
@@ -290,6 +286,37 @@ namespace CodeShot.ToolWindows
 
             AddAdjacentSurfaces(menuSurfaces, ref captureBounds, captureRegions);
             return activeHeader is Rectangle;
+        }
+
+        private static List<AutomationElement> FindVisibleMenuItems(int processId)
+        {
+            var items = new List<AutomationElement>();
+            var itemCondition = new AndCondition(
+                new PropertyCondition(AutomationElement.ProcessIdProperty, processId),
+                new PropertyCondition(AutomationElement.IsOffscreenProperty, false),
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.MenuItem));
+
+            EnumWindows(
+                (window, parameter) =>
+                {
+                    if (IsVisualStudioWindow(window, processId) == false)
+                    {
+                        return true;
+                    }
+
+                    var root = AutomationElement.FromHandle(window);
+                    var matches = root.FindAll(
+                        TreeScope.Element | TreeScope.Descendants,
+                        itemCondition);
+                    for (var index = 0; index < matches.Count; index++)
+                    {
+                        items.Add(matches[index]);
+                    }
+
+                    return true;
+                },
+                IntPtr.Zero);
+            return items;
         }
 
         private static bool IsExpanded(AutomationElement element)

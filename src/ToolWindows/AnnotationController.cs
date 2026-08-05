@@ -340,6 +340,8 @@ namespace CodeShot.ToolWindows
             var editor = _textEditor;
             var text = editor.Text.Trim();
             _textEditor = null;
+            editor.KeyDown -= OnTextEditorKeyDown;
+            editor.LostKeyboardFocus -= OnTextEditorLostKeyboardFocus;
             _layer.IsHitTestVisible = false;
             _layer.Children.Remove(editor);
 

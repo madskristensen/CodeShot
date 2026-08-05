@@ -531,24 +531,30 @@ namespace CodeShot.ToolWindows
             ApplyTheme();
         }
 
-        internal static void CopyImageToClipboard(BitmapSource snapshot, string? plainText = null)
+        internal static async Task CopyImageToClipboardAsync(
+            BitmapSource snapshot,
+            string? plainText = null)
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-            var data = new DataObject();
-            data.SetImage(snapshot);
-
-            if (string.IsNullOrEmpty(plainText) == false)
+            if (snapshot.IsFrozen == false)
             {
-                data.SetText(plainText);
+                snapshot.Freeze();
             }
 
-            // WPF's standard bitmap clipboard format drops alpha in many paste targets. The PNG
-            // format preserves transparency while SetImage remains as a compatibility fallback.
-            using (var png = new MemoryStream())
+            using (var png = await Task.Run(() => EncodePng(snapshot)))
             {
-                EncodePng(snapshot, png);
-                png.Position = 0;
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                var data = new DataObject();
+                data.SetImage(snapshot);
+
+                if (string.IsNullOrEmpty(plainText) == false)
+                {
+                    data.SetText(plainText);
+                }
+
+                // WPF's standard bitmap clipboard format drops alpha in many paste targets. The PNG
+                // format preserves transparency while SetImage remains as a compatibility fallback.
                 data.SetData("PNG", png, false);
 
                 // Copying the data keeps the image on the clipboard after Visual Studio exits.
@@ -556,9 +562,9 @@ namespace CodeShot.ToolWindows
             }
         }
 
-        internal void CopyImage()
+        internal async Task CopyImageAsync()
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             try
             {
@@ -581,7 +587,10 @@ namespace CodeShot.ToolWindows
                 var includePlainText = _copyPlainTextWithImage
                     && _annotationController.HasRedactions == false
                     && !string.IsNullOrEmpty(_selectedCode);
-                CopyImageToClipboard(snapshot, includePlainText ? _selectedCode : null);
+                await CopyImageToClipboardAsync(
+                    snapshot,
+                    includePlainText ? _selectedCode : null);
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 StatusText.Text = includePlainText
                     ? "Copied screenshot and code to clipboard."
@@ -591,7 +600,8 @@ namespace CodeShot.ToolWindows
             }
             catch (Exception ex)
             {
-                _ = ex.LogAsync();
+                await ex.LogAsync();
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 StatusText.Text = "Copy failed. Check ActivityLog for details.";
             }
         }
@@ -834,7 +844,7 @@ namespace CodeShot.ToolWindows
                 if (_selectedLineCount > 0)
                 {
                     await Dispatcher.Yield(DispatcherPriority.Loaded);
-                    CopyImage();
+                    await CopyImageAsync();
                 }
 
                 HideLoading();
@@ -1126,6 +1136,16 @@ namespace CodeShot.ToolWindows
 
             LineNumbersText.Text = string.Empty;
             LineNumbersText.Visibility = Visibility.Collapsed;
+        }
+
+        private static MemoryStream EncodePng(BitmapSource snapshot)
+        {
+            var output = new MemoryStream();
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(snapshot));
+            encoder.Save(output);
+            output.Position = 0;
+            return output;
         }
 
         private static void EncodePng(BitmapSource snapshot, Stream output)
