@@ -1,3 +1,4 @@
+using EnvDTE;
 using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -10,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -100,6 +102,7 @@ namespace CodeShot.ToolWindows
             };
             _refreshTimer.Tick += OnRefreshTimerTick;
             ApplyOptions(options);
+            ShowEmptyState(HasOpenDocument());
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
         }
@@ -356,6 +359,7 @@ namespace CodeShot.ToolWindows
             _annotationController.Reset();
             _documentTokens = DocumentTokens.Empty;
 
+            HideEmptyState();
             SetPreviewPlainText(string.Empty);
             LineNumbersText.Text = string.Empty;
             LineNumbersText.Visibility = Visibility.Collapsed;
@@ -743,6 +747,12 @@ namespace CodeShot.ToolWindows
             if (textView is null)
             {
                 DetachFromSelectionChanges();
+
+                if (HasPreview == false)
+                {
+                    ShowEmptyState(HasOpenDocument());
+                }
+
                 return;
             }
 
@@ -787,6 +797,7 @@ namespace CodeShot.ToolWindows
                 ? "Preview updated from current selection (plain text fallback)."
                 : "Preview updated from current selection.";
 
+            HideEmptyState();
             UpdatePreviewText();
         }
 
@@ -840,9 +851,96 @@ namespace CodeShot.ToolWindows
             _annotationController.Reset();
             _documentTokens = DocumentTokens.Empty;
             TitleText.Text = "No selection";
-            StatusText.Text = "Select code in the editor to update the preview.";
+            ShowEmptyState(hasActiveDocument: true);
             UpdatePreviewText();
             UpdateScreenshotDimensions();
+        }
+
+        private void ShowEmptyState(bool hasActiveDocument)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            var description = hasActiveDocument
+                ? "Select code in the editor and the preview will appear here."
+                : "Open a file and select the code you want to capture.";
+            var shortcut = GetTakeScreenshotShortcut();
+
+            EmptyStateDescription.Text = description;
+            EmptyStateShortcut.Text = string.IsNullOrWhiteSpace(shortcut)
+                ? "After selecting code, choose Tools > Take Screenshot to copy it immediately."
+                : $"After selecting code, press {shortcut} to copy it immediately.";
+            EmptyState.Visibility = Visibility.Visible;
+            CaptureSurface.Visibility = Visibility.Collapsed;
+            StatusText.Text = description;
+        }
+
+        private void HideEmptyState()
+        {
+            EmptyState.Visibility = Visibility.Collapsed;
+            CaptureSurface.Visibility = Visibility.Visible;
+        }
+
+        private static bool HasOpenDocument()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (Package.GetGlobalService(typeof(SDTE)) is not DTE dte)
+            {
+                return false;
+            }
+
+            try
+            {
+                return dte.ActiveDocument is not null;
+            }
+            catch (COMException ex)
+            {
+                _ = ex.LogAsync();
+                return false;
+            }
+        }
+
+        private static string? GetTakeScreenshotShortcut()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (Package.GetGlobalService(typeof(SDTE)) is not DTE dte)
+            {
+                return null;
+            }
+
+            try
+            {
+                Command command = dte.Commands.Item(
+                    PackageGuids.CodeShot.ToString("B"),
+                    PackageIds.ShowCodeShotWindowCommand);
+
+                if (command?.Bindings is not object[] bindings)
+                {
+                    return null;
+                }
+
+                foreach (var binding in bindings.OfType<string>())
+                {
+                    var separator = binding.IndexOf("::", StringComparison.Ordinal);
+                    var shortcut = separator >= 0 ? binding.Substring(separator + 2) : binding;
+
+                    if (string.IsNullOrWhiteSpace(shortcut) == false)
+                    {
+                        return shortcut;
+                    }
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                _ = ex.LogAsync();
+            }
+            catch (COMException ex)
+            {
+                _ = ex.LogAsync();
+            }
+
+            return null;
         }
 
         private bool IsPreviewSelectionChanged(IWpfTextView textView, IReadOnlyList<SnapshotSpan> spans)

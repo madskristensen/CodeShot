@@ -4,6 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:catalog="clr-namespace:Microsoft.VisualStudio.Imaging;assembly=Microsoft.VisualStudio.ImageCatalog"
+    xmlns:imaging="clr-namespace:Microsoft.VisualStudio.Imaging;assembly=Microsoft.VisualStudio.Imaging"
     xmlns:shell="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.15.0"
     xmlns:toolkit="clr-namespace:Community.VisualStudio.Toolkit;assembly=Community.VisualStudio.Toolkit"
     toolkit:Themes.UseVsTheme="True"
@@ -232,7 +234,47 @@
                 </Border>
             </StackPanel>
         </ScrollViewer>
-
+        <Border
+            x:Name="EmptyState"
+            Grid.Row="0"
+            Panel.ZIndex="10"
+            Padding="32"
+            Background="{DynamicResource {x:Static shell:VsBrushes.ToolWindowBackgroundKey}}"
+            AutomationProperties.LiveSetting="Polite"
+            AutomationProperties.Name="CodeShot empty state">
+            <StackPanel
+                MaxWidth="440"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                TextBlock.TextAlignment="Center">
+                <imaging:CrispImage
+                    Width="48"
+                    Height="48"
+                    Margin="0,0,0,14"
+                    HorizontalAlignment="Center"
+                    IsHitTestVisible="False"
+                    Moniker="{x:Static catalog:KnownMonikers.Camera}" />
+                <TextBlock
+                    Margin="0,0,0,8"
+                    FontSize="20"
+                    FontWeight="SemiBold"
+                    Text="Create a CodeShot" />
+                <TextBlock
+                    x:Name="EmptyStateDescription"
+                    Margin="0,0,0,14"
+                    Text="Open a file and select the code you want to capture."
+                    TextWrapping="Wrap" />
+                <TextBlock
+                    x:Name="EmptyStateShortcut"
+                    Margin="0,0,0,8"
+                    FontWeight="SemiBold"
+                    TextWrapping="Wrap" />
+                <TextBlock
+                    Foreground="{DynamicResource {x:Static shell:VsBrushes.GrayTextKey}}"
+                    Text="You can also right-click a tool window's title bar and choose Take Screenshot."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
         <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static shell:VsBrushes.ToolWindowBorderKey}}">
             <Grid>
                 <Grid.ColumnDefinitions>
