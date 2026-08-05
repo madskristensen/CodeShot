@@ -27,7 +27,7 @@
 | Share readable code       | VS syntax colors, configurable fonts, line numbers and high-resolution export         |
 | Explain an implementation | Rectangles, arrows, expression highlights, line emphasis and text callouts            |
 | Protect sensitive details | Opaque redactions baked into the exported image                                       |
-| Capture more than code    | Screenshots of visible Visual Studio tool windows, including their frame              |
+| Capture more than code    | Screenshots of visible Visual Studio tool windows and open menus                       |
 | Fit your destination      | Theme, solid, gradient or transparent backgrounds with configurable spacing and scale |
 | Keep code searchable      | Optional plain text alongside the clipboard image when no redaction is present        |
 
@@ -39,7 +39,7 @@ Use CodeShot for documentation, pull requests, release notes, bug reports, prese
 2. Choose **Tools > Take Screenshot** or press **Ctrl+Shift+P**.
 3. Adjust the preview, then press **Ctrl+C** to copy or **Ctrl+S** to save.
 
-Opening CodeShot copies the initial screenshot automatically. Later selection changes update the preview without replacing the clipboard.
+Opening CodeShot copies the initial screenshot automatically. A progress indicator remains visible while a screenshot is being prepared. Later selection changes update the preview without replacing the clipboard.
 
 ## Annotate and redact before sharing
 
@@ -61,6 +61,14 @@ Tool-window capture uses the pixels currently visible on screen, including Win32
 ![Take Screenshot command on a Visual Studio tool window](art/tool-window-context-menu.png)
 
 *Capture Error List, Test Explorer, Solution Explorer and other visible tool windows.*
+
+## Capture Visual Studio menus and dialogs
+
+In the CodeShot tool window toolbar, choose **Capture Foreground UI in 5 Seconds**, then open the top-level menu, context menu, cascading submenu or modal dialog you want while the countdown appears in the tool window. CodeShot captures the topmost Visual Studio surface at the pointer or the foreground modal window, copies the image and opens it for cropping, annotation and export.
+
+Keep the entire surface unobscured during capture. Top-level menus include only the active header and visible cascading submenus. Context menus are trimmed to their visible command surface so background pixels, transparent margins and window shadows are excluded.
+
+<!-- Screenshot instructions: Add art/foreground-ui-capture.png showing the CodeShot toolbar's Capture Foreground UI button alongside a finished capture with one top-level menu and a cascading flyout. Keep the menu text generic, show the crisp trimmed edges clearly, avoid repository or machine-specific details, and use the current dark theme at about 900 pixels wide. -->
 
 ## Customize and export
 

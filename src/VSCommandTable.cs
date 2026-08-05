@@ -29,6 +29,7 @@ namespace CodeShot
         public const int ToolWindowContextGroup = 0x0002;
         public const int ShowCodeShotWindowCommand = 0x0100;
         public const int CopyToolWindowScreenshotCommand = 0x0101;
+        public const int CaptureMenuCommand = 0x0102;
         public const int CodeShotToolbar = 0x1000;
         public const int ToolbarActionsGroup = 0x1010;
         public const int ToolbarFontGroup = 0x1020;

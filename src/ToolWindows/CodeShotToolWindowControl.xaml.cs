@@ -39,6 +39,7 @@ namespace CodeShot.ToolWindows
         private const long MaximumRenderPixelCount = 64_000_000;
 
         private readonly DispatcherTimer _refreshTimer;
+        private readonly DispatcherTimer _menuCaptureCountdownTimer;
         private readonly HashSet<int> _highlightedLines = new HashSet<int>();
         private readonly List<PreviewEditState> _editUndoHistory = new List<PreviewEditState>();
         private readonly List<PreviewEditState> _editRedoHistory = new List<PreviewEditState>();
@@ -83,10 +84,14 @@ namespace CodeShot.ToolWindows
         private string _saveFileNameTemplate = "{fileNameWithoutExtension}";
         private bool _promptForSaveLocation = true;
         private string _lastRenderFailure = string.Empty;
+        private string? _statusBeforeMenuCapture;
+        private string? _statusBeforeLoading;
+        private int _menuCaptureRemainingSeconds;
 
-        // The control is created and loaded asynchronously, so the request from the command is held
-        // here until whichever refresh comes next has built a preview worth copying.
+        // The control is created and loaded asynchronously, so requests from commands are held until
+        // the control exists and the preview has finished rendering.
         private static bool _copyWhenReady;
+        private static string? _pendingLoadingMessage;
         private static ToolWindowSnapshot? _pendingToolWindowSnapshot;
 
         public CodeShotToolWindowControl(General options)
@@ -101,6 +106,11 @@ namespace CodeShot.ToolWindows
                 Interval = SelectionRefreshDelay
             };
             _refreshTimer.Tick += OnRefreshTimerTick;
+            _menuCaptureCountdownTimer = new DispatcherTimer(DispatcherPriority.Normal)
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _menuCaptureCountdownTimer.Tick += OnMenuCaptureCountdownTick;
             ApplyOptions(options);
             ShowEmptyState(HasOpenDocument());
             Loaded += OnLoaded;
@@ -248,6 +258,11 @@ namespace CodeShot.ToolWindows
             General.Saved -= OnOptionsSaved;
             VS.Events.WindowEvents.ActiveFrameChanged -= OnActiveFrameChanged;
             _refreshTimer.Stop();
+            _menuCaptureCountdownTimer.Stop();
+            MenuCaptureCountdown.Visibility = Visibility.Collapsed;
+            LoadingOverlay.Visibility = Visibility.Collapsed;
+            _statusBeforeMenuCapture = null;
+            _statusBeforeLoading = null;
             CodeArea.PreviewMouseLeftButtonDown -= OnCodeAreaMouseDown;
             CodeArea.PreviewMouseMove -= OnCodeAreaMouseMove;
             CodeArea.PreviewMouseLeftButtonUp -= OnCodeAreaMouseUp;
@@ -281,6 +296,11 @@ namespace CodeShot.ToolWindows
             VS.Events.WindowEvents.ActiveFrameChanged += OnActiveFrameChanged;
 
             ApplyTheme();
+
+            if (_pendingLoadingMessage is string loadingMessage)
+            {
+                ShowLoadingCore(loadingMessage);
+            }
 
             if (_pendingToolWindowSnapshot is ToolWindowSnapshot pendingSnapshot)
             {
@@ -317,6 +337,7 @@ namespace CodeShot.ToolWindows
         internal static void CopyWhenReady()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+            ShowLoading("Creating editor screenshot...");
             _copyWhenReady = true;
             Current?.Refresh();
         }
@@ -330,6 +351,91 @@ namespace CodeShot.ToolWindows
             {
                 _pendingToolWindowSnapshot = null;
                 control.ShowCapturedImage(snapshot);
+            }
+        }
+
+        internal static void ShowLoading(string message)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _pendingLoadingMessage = message;
+            Current?.ShowLoadingCore(message);
+        }
+
+        internal static void HideLoading()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _pendingLoadingMessage = null;
+            Current?.HideLoadingCore();
+        }
+
+        private void ShowLoadingCore(string message)
+        {
+            _statusBeforeLoading ??= StatusText.Text;
+            LoadingText.Text = message;
+            LoadingOverlay.Visibility = Visibility.Visible;
+            StatusText.Text = message;
+        }
+
+        private void HideLoadingCore()
+        {
+            LoadingOverlay.Visibility = Visibility.Collapsed;
+            if (_statusBeforeLoading is string status)
+            {
+                StatusText.Text = status;
+                _statusBeforeLoading = null;
+            }
+        }
+
+        internal static void StartMenuCaptureCountdown(int seconds)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (Current is not CodeShotToolWindowControl control)
+            {
+                return;
+            }
+
+            control._statusBeforeMenuCapture ??= control.StatusText.Text;
+            control._menuCaptureRemainingSeconds = seconds;
+            control.UpdateMenuCaptureCountdown();
+            control._menuCaptureCountdownTimer.Start();
+        }
+
+        private void OnMenuCaptureCountdownTick(object sender, EventArgs e)
+        {
+            _menuCaptureRemainingSeconds--;
+            if (_menuCaptureRemainingSeconds <= 0)
+            {
+                _menuCaptureCountdownTimer.Stop();
+                MenuCaptureCountdown.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            UpdateMenuCaptureCountdown();
+        }
+
+        private void UpdateMenuCaptureCountdown()
+        {
+            MenuCaptureCountdownText.Text = _menuCaptureRemainingSeconds.ToString();
+            MenuCaptureCountdown.Visibility = Visibility.Visible;
+            StatusText.Text = $"Capturing foreground Visual Studio UI in {_menuCaptureRemainingSeconds}...";
+        }
+
+        internal static void HideMenuCaptureCountdown()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            if (Current is not CodeShotToolWindowControl control)
+            {
+                return;
+            }
+
+            control._menuCaptureCountdownTimer.Stop();
+            control.MenuCaptureCountdown.Visibility = Visibility.Collapsed;
+            if (control._statusBeforeMenuCapture is string status)
+            {
+                control.StatusText.Text = status;
+                control._statusBeforeMenuCapture = null;
             }
         }
 
@@ -388,6 +494,7 @@ namespace CodeShot.ToolWindows
                 _annotationController.RestoreState(annotationState);
             }
 
+            HideLoading();
             StatusText.Text = $"Captured '{snapshot.Caption}' and copied it to the clipboard. Add annotations, then copy or save again.";
             UpdateCommandStatus();
         }
@@ -686,6 +793,11 @@ namespace CodeShot.ToolWindows
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
+            if (_copyWhenReady)
+            {
+                await Dispatcher.Yield(DispatcherPriority.Render);
+            }
+
             if (_isRefreshingSelection)
             {
                 // Another call is between the thread switch and the rebuild, so queue a rerun
@@ -723,6 +835,8 @@ namespace CodeShot.ToolWindows
                     await Dispatcher.Yield(DispatcherPriority.Loaded);
                     CopyImage();
                 }
+
+                HideLoading();
             }
         }
 
@@ -2248,6 +2362,7 @@ namespace CodeShot.ToolWindows
 
                 // The failing action can resume on a background thread, and StatusText is UI state.
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                HideLoading();
                 StatusText.Text = userMessage;
             }
         }

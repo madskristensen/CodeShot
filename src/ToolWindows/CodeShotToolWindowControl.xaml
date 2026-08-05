@@ -275,6 +275,79 @@
                     TextWrapping="Wrap" />
             </StackPanel>
         </Border>
+        <Border
+            x:Name="MenuCaptureCountdown"
+            Grid.Row="0"
+            Panel.ZIndex="20"
+            Padding="32"
+            Background="{DynamicResource {x:Static shell:VsBrushes.ToolWindowBackgroundKey}}"
+            Visibility="Collapsed"
+            AutomationProperties.LiveSetting="Assertive"
+            AutomationProperties.Name="Menu capture countdown">
+            <StackPanel
+                MaxWidth="440"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                TextBlock.TextAlignment="Center">
+                <imaging:CrispImage
+                    Width="48"
+                    Height="48"
+                    Margin="0,0,0,14"
+                    HorizontalAlignment="Center"
+                    IsHitTestVisible="False"
+                    Moniker="{x:Static catalog:KnownMonikers.Timer}" />
+                <TextBlock
+                    x:Name="MenuCaptureCountdownText"
+                    Margin="0,0,0,8"
+                    FontSize="48"
+                    FontWeight="SemiBold"
+                    AutomationProperties.LiveSetting="Assertive"
+                    Text="5" />
+                <TextBlock
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Text="Open the UI you want to capture" />
+                <TextBlock
+                    Margin="0,8,0,0"
+                    Foreground="{DynamicResource {x:Static shell:VsBrushes.GrayTextKey}}"
+                    Text="Keep the menu, flyout, or dialog visible until the countdown finishes."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+        <Border
+            x:Name="LoadingOverlay"
+            Grid.Row="0"
+            Panel.ZIndex="30"
+            Padding="32"
+            Background="{DynamicResource {x:Static shell:VsBrushes.ToolWindowBackgroundKey}}"
+            Visibility="Collapsed"
+            AutomationProperties.LiveSetting="Polite"
+            AutomationProperties.Name="CodeShot loading">
+            <StackPanel
+                Width="280"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                TextBlock.TextAlignment="Center">
+                <imaging:CrispImage
+                    Width="48"
+                    Height="48"
+                    Margin="0,0,0,14"
+                    HorizontalAlignment="Center"
+                    IsHitTestVisible="False"
+                    Moniker="{x:Static catalog:KnownMonikers.Camera}" />
+                <TextBlock
+                    x:Name="LoadingText"
+                    Margin="0,0,0,14"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Text="Creating screenshot..."
+                    TextWrapping="Wrap" />
+                <ProgressBar
+                    Height="4"
+                    IsIndeterminate="True"
+                    AutomationProperties.Name="Screenshot progress" />
+            </StackPanel>
+        </Border>
         <Border Grid.Row="1" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource {x:Static shell:VsBrushes.ToolWindowBorderKey}}">
             <Grid>
                 <Grid.ColumnDefinitions>

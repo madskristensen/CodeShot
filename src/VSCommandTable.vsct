@@ -99,6 +99,17 @@
         </Strings>
       </Button>
 
+      <Button guid="CodeShot" id="CaptureMenuCommand" priority="0x0190" type="Button">
+        <Parent guid="CodeShot" id="ToolbarActionsGroup" />
+        <Icon guid="ImageCatalogGuid" id="Timer" />
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <Strings>
+          <ButtonText>Capture Foreground UI in 5 Seconds</ButtonText>
+          <ToolTipText>Open a Visual Studio menu, context menu, or dialog before the timer expires</ToolTipText>
+          <LocCanonicalName>.CodeShot.CaptureForegroundUI</LocCanonicalName>
+        </Strings>
+      </Button>
+
       <Button guid="CodeShot" id="CopyToolWindowScreenshotCommand" priority="0x0100" type="Button">
         <Parent guid="CodeShot" id="ToolWindowContextGroup" />
         <Icon guid="ImageCatalogGuid" id="Camera" />
@@ -385,6 +396,7 @@
       <IDSymbol name="ToolWindowContextGroup" value="0x0002" />
       <IDSymbol name="ShowCodeShotWindowCommand" value="0x0100" />
       <IDSymbol name="CopyToolWindowScreenshotCommand" value="0x0101" />
+      <IDSymbol name="CaptureMenuCommand" value="0x0102" />
 
       <IDSymbol name="CodeShotToolbar" value="0x1000" />
       <IDSymbol name="ToolbarActionsGroup" value="0x1010" />

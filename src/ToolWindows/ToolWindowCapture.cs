@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -190,7 +191,7 @@ namespace CodeShot.ToolWindows
             return window == IntPtr.Zero ? IntPtr.Zero : GetAncestor(window, GetAncestorRoot);
         }
 
-        private static bool IsCaptureSizeSupported(System.Drawing.Rectangle bounds)
+        internal static bool IsCaptureSizeSupported(System.Drawing.Rectangle bounds)
             => bounds.Width > 0
                 && bounds.Height > 0
                 && bounds.Width <= MaximumCaptureDimension
@@ -612,6 +613,35 @@ namespace CodeShot.ToolWindows
             }
 
             return opaqueBounds;
+        }
+
+        internal static BitmapSource CaptureScreen(System.Drawing.Rectangle captureBounds)
+        {
+            return CaptureScreen(captureBounds, 0, 0, null, null);
+        }
+
+        internal static BitmapSource CaptureScreen(
+            System.Drawing.Rectangle captureBounds,
+            IReadOnlyList<System.Drawing.Rectangle> visibleRegions)
+        {
+            var width = captureBounds.Width;
+            var height = captureBounds.Height;
+            var mask = new byte[width * height * 4];
+
+            for (var regionIndex = 0; regionIndex < visibleRegions.Count; regionIndex++)
+            {
+                var region = System.Drawing.Rectangle.Intersect(captureBounds, visibleRegions[regionIndex]);
+                for (var y = region.Top; y < region.Bottom; y++)
+                {
+                    for (var x = region.Left; x < region.Right; x++)
+                    {
+                        var offset = ((((y - captureBounds.Top) * width) + x - captureBounds.Left) * 4) + 3;
+                        mask[offset] = byte.MaxValue;
+                    }
+                }
+            }
+
+            return CaptureScreen(captureBounds, 0, 0, null, mask);
         }
 
         private static BitmapSource CaptureScreen(
