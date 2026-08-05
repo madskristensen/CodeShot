@@ -380,7 +380,7 @@
   </Commands>
 
   <KeyBindings>
-    <KeyBinding guid="CodeShot" id="ShowCodeShotWindowCommand" editor="guidVSStd97" key1="P" mod1="Control Shift" />
+    <KeyBinding guid="CodeShot" id="ShowCodeShotWindowCommand" editor="guidVSStd97" key1="M" mod1="Control Shift" />
 
     <!-- The editor attribute is the command UI context of the active window, so these two only beat
          the global Edit.Copy and File.SaveSelectedItems while the CodeShot window has focus. -->
@@ -388,6 +388,17 @@
     <KeyBinding guid="CodeShot" id="SaveImageCommand" editor="CodeShotToolWindow" key1="S" mod1="Control" />
     <KeyBinding guid="CodeShot" id="UndoAnnotationCommand" editor="CodeShotToolWindow" key1="Z" mod1="Control" />
     <KeyBinding guid="CodeShot" id="RedoAnnotationCommand" editor="CodeShotToolWindow" key1="Y" mod1="Control" />
+    <KeyBinding guid="CodeShot" id="CaptureMenuCommand" editor="CodeShotToolWindow" key1="D" mod1="Control" />
+
+    <!-- Annotation keys are scoped to the CodeShot tool window and do not apply globally. -->
+    <KeyBinding guid="CodeShot" id="CropImageCommand" editor="CodeShotToolWindow" key1="S" mod1="Control Shift" />
+    <KeyBinding guid="CodeShot" id="SelectAnnotationCommand" editor="CodeShotToolWindow" key1="M" mod1="Control" />
+    <KeyBinding guid="CodeShot" id="TextAnnotationCommand" editor="CodeShotToolWindow" key1="T" mod1="Control" />
+    <KeyBinding guid="CodeShot" id="EraserAnnotationCommand" editor="CodeShotToolWindow" key1="E" mod1="Control" />
+    <KeyBinding guid="CodeShot" id="RectangleAnnotationCommand" editor="CodeShotToolWindow" key1="R" mod1="Control" />
+    <KeyBinding guid="CodeShot" id="RedactAnnotationCommand" editor="CodeShotToolWindow" key1="R" mod1="Control Shift" />
+    <KeyBinding guid="CodeShot" id="HighlightAnnotationCommand" editor="CodeShotToolWindow" key1="H" mod1="Control" />
+    <KeyBinding guid="CodeShot" id="ArrowAnnotationCommand" editor="CodeShotToolWindow" key1="A" mod1="Control" />
   </KeyBindings>
 
   <Symbols>

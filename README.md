@@ -27,7 +27,7 @@
 | Share readable code       | VS syntax colors, configurable fonts, line numbers and high-resolution export         |
 | Explain an implementation | Rectangles, arrows, expression highlights, line emphasis and text callouts            |
 | Protect sensitive details | Opaque redactions baked into the exported image                                       |
-| Capture more than code    | Screenshots of visible Visual Studio tool windows and open menus                       |
+| Capture more than code    | Screenshots of visible Visual Studio tool windows and open menus                      |
 | Fit your destination      | Theme, solid, gradient or transparent backgrounds with configurable spacing and scale |
 | Keep code searchable      | Optional plain text alongside the clipboard image when no redaction is present        |
 
@@ -36,7 +36,7 @@ Use CodeShot for documentation, pull requests, release notes, bug reports, prese
 ## Getting started
 
 1. Select code in the editor.
-2. Choose **Tools > Take Screenshot** or press **Ctrl+Shift+P**.
+2. Choose **Tools > Take Screenshot** or press **Ctrl+Shift+M**.
 3. Adjust the preview, then press **Ctrl+C** to copy or **Ctrl+S** to save.
 
 Opening CodeShot copies the initial screenshot automatically. A progress indicator remains visible while a screenshot is being prepared. Later selection changes update the preview without replacing the clipboard.
@@ -85,14 +85,23 @@ The toolbar controls font, size, line numbers, title bar and indentation. The st
 
 | Shortcut             | Action                                        |
 | -------------------- | --------------------------------------------- |
-| **Ctrl+Shift+P**     | Take a screenshot of the editor selection     |
+| **Ctrl+Shift+M**     | Take a screenshot of the editor selection     |
 | **Ctrl+C**           | Copy the current CodeShot image               |
 | **Ctrl+S**           | Save the current CodeShot image               |
 | **Ctrl+Z**           | Undo the last annotation or crop              |
 | **Ctrl+Y**           | Redo the last annotation or crop              |
+| **Ctrl+D**           | Start the delayed foreground UI capture       |
+| **Ctrl+Shift+S**     | Crop a captured Visual Studio surface         |
+| **Ctrl+M**           | Select annotations or highlight code lines    |
+| **Ctrl+T**           | Add a text callout                            |
+| **Ctrl+E**           | Erase an annotation                           |
+| **Ctrl+R**           | Draw a rectangle                              |
+| **Ctrl+Shift+R**     | Redact sensitive content                      |
+| **Ctrl+H**           | Highlight an expression                       |
+| **Ctrl+A**           | Draw an arrow                                 |
 | **Ctrl+mouse wheel** | Zoom the preview without changing export size |
 
-Shortcuts other than **Ctrl+Shift+P** apply while CodeShot has focus. They can be rebound under the **CodeShot** scope in **Tools > Options > Environment > Keyboard**.
+Shortcuts other than **Ctrl+Shift+M** apply while CodeShot has focus. They can be rebound under the **CodeShot** scope in **Tools > Options > Environment > Keyboard**.
 
 ## Privacy
 
