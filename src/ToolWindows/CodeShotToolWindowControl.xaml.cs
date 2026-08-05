@@ -407,6 +407,7 @@ namespace CodeShot.ToolWindows
             if (_menuCaptureRemainingSeconds <= 0)
             {
                 _menuCaptureCountdownTimer.Stop();
+                ShowLoading("Creating foreground UI screenshot...");
                 MenuCaptureCountdown.Visibility = Visibility.Collapsed;
                 return;
             }
