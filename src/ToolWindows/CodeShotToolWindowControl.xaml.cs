@@ -403,6 +403,8 @@ namespace CodeShot.ToolWindows
 
         private void OnMenuCaptureCountdownTick(object sender, EventArgs e)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             _menuCaptureRemainingSeconds--;
             if (_menuCaptureRemainingSeconds <= 0)
             {
@@ -755,7 +757,7 @@ namespace CodeShot.ToolWindows
 
         // The dialog asks before it replaces a file, and skipping the dialog must not quietly lose
         // the previous screenshot, so the name is numbered until it is free.
-        private static string GetUniquePath(string folder, string fileName)
+        internal static string GetUniquePath(string folder, string fileName)
         {
             var candidate = Path.Combine(folder, fileName + ".png");
 
