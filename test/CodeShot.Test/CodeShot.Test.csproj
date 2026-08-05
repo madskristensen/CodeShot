@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>CodeShot.Test</RootNamespace>
+    <AssemblyName>CodeShot.Test</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.9.3" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.9.3" />
+
+    <!--
+      CodeShot.csproj excludes the Visual Studio runtime assemblies because the IDE supplies them.
+      Tests run outside the IDE, so the toolkit is referenced here with its runtime assets.
+    -->
+    <PackageReference Include="Community.VisualStudio.Toolkit.17" Version="17.0.551" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CodeShot.csproj" />
+  </ItemGroup>
+
+</Project>
