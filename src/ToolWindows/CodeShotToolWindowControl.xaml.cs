@@ -1596,6 +1596,18 @@ namespace CodeShot.ToolWindows
             return new Point(x, y);
         }
 
+        private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Delete
+                || Keyboard.Modifiers != ModifierKeys.None
+                || _annotationController.IsTextEditorInput(e.OriginalSource))
+            {
+                return;
+            }
+
+            e.Handled = _annotationController.DeleteSelected();
+        }
+
         private void OnCodeAreaMouseDown(object sender, MouseButtonEventArgs e)
         {
             if (HasPreview == false)
@@ -1613,6 +1625,8 @@ namespace CodeShot.ToolWindows
             {
                 return;
             }
+
+            Focus();
 
             if (_annotationController.HandleMouseDown(e) == false && _capturedToolWindow is null)
             {

@@ -94,6 +94,7 @@ The status bar shows the exported screenshot dimensions. Use its slider or **Ctr
 | **Ctrl+S**           | Save the current CodeShot image               |
 | **Ctrl+Z**           | Undo the last annotation or crop              |
 | **Ctrl+Y**           | Redo the last annotation or crop              |
+| **Delete**           | Remove the selected annotation                |
 | **Ctrl+D**           | Start the delayed foreground UI capture       |
 | **Ctrl+Shift+S**     | Crop a captured Visual Studio surface         |
 | **Ctrl+M**           | Select annotations or highlight code lines    |

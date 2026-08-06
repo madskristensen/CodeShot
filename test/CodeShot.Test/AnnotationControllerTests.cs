@@ -107,6 +107,40 @@ namespace CodeShot.Test
             Assert.AreEqual("Annotations cleared because the preview layout changed.", _statuses.Last());
         }
 
+        [TestMethod]
+        public void DeleteSelected_RemovesSelectionAndRaisesChanging()
+        {
+            Restore(
+                new CodeAnnotation(AnnotationKind.Rectangle, new Rect(10, 10, 20, 20)),
+                new CodeAnnotation(AnnotationKind.Redaction, new Rect(100, 100, 20, 20)));
+            var changing = false;
+            _controller.Changing += () => changing = true;
+            Assert.IsTrue(_controller.TrySelectAnnotation(new Point(15, 15)));
+
+            var removed = _controller.DeleteSelected();
+
+            Assert.IsTrue(removed);
+            Assert.IsTrue(changing);
+            Assert.IsFalse(_controller.HasSelectedAnnotation);
+            Assert.AreEqual(1, _controller.CaptureState().Annotations.Count);
+            Assert.AreEqual(AnnotationKind.Redaction, _controller.CaptureState().Annotations[0].Kind);
+            Assert.AreEqual("Annotation removed.", _statuses.Last());
+        }
+
+        [TestMethod]
+        public void DeleteSelected_WithoutSelectionDoesNothing()
+        {
+            Restore(new CodeAnnotation(AnnotationKind.Rectangle, new Rect(10, 10, 20, 20)));
+            var changing = false;
+            _controller.Changing += () => changing = true;
+
+            var removed = _controller.DeleteSelected();
+
+            Assert.IsFalse(removed);
+            Assert.IsFalse(changing);
+            Assert.IsTrue(_controller.HasAnnotations);
+        }
+
         private void Restore(params CodeAnnotation[] annotations)
             => _controller.RestoreState(new AnnotationController.State(annotations));
 

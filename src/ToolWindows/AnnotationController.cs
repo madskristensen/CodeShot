@@ -43,6 +43,10 @@ namespace CodeShot.ToolWindows
         internal AnnotationMode Mode { get; private set; }
         internal bool HasAnnotations => _annotations.Count > 0;
         internal bool HasRedactions => _annotations.Exists(annotation => annotation.Kind == AnnotationKind.Redaction);
+        internal bool HasSelectedAnnotation => Mode == AnnotationMode.Select
+            && _textEditor is null
+            && _selectedIndex >= 0
+            && _selectedIndex < _annotations.Count;
         internal bool IsEditingText => _textEditor is not null;
         internal bool CanUndoText => _textEditor?.CanUndo == true;
         internal bool CanRedoText => _textEditor?.CanRedo == true;
@@ -281,6 +285,24 @@ namespace CodeShot.ToolWindows
             return true;
         }
 
+        internal bool DeleteSelected()
+        {
+            if (HasSelectedAnnotation == false)
+            {
+                return false;
+            }
+
+            CancelSelectionDrag(restoreOriginal: true);
+            return RemoveAnnotation(_selectedIndex);
+        }
+
+        internal bool TrySelectAnnotation(Point point)
+        {
+            _selectedIndex = FindAnnotation(point);
+            Refresh();
+            return _selectedIndex >= 0;
+        }
+
         internal void HandleSurfaceSizeChanged()
         {
             if (_annotations.Count == 0 && _textEditor is null)
@@ -437,19 +459,25 @@ namespace CodeShot.ToolWindows
 
         private void Erase(Point point)
         {
-            var index = FindAnnotation(point);
-
-            if (index >= 0)
+            if (RemoveAnnotation(FindAnnotation(point)) == false)
             {
-                Changing?.Invoke();
-                _annotations.RemoveAt(index);
-                _selectedIndex = -1;
-                Refresh();
-                _setStatus("Annotation removed.");
-                return;
+                _setStatus("No annotation at that point.");
+            }
+        }
+
+        private bool RemoveAnnotation(int index)
+        {
+            if (index < 0 || index >= _annotations.Count)
+            {
+                return false;
             }
 
-            _setStatus("No annotation at that point.");
+            Changing?.Invoke();
+            _annotations.RemoveAt(index);
+            _selectedIndex = -1;
+            Refresh();
+            _setStatus("Annotation removed.");
+            return true;
         }
 
         private bool BeginSelectionDrag(MouseButtonEventArgs e)
@@ -459,17 +487,13 @@ namespace CodeShot.ToolWindows
 
             if (dragMode == SelectionDragMode.None)
             {
-                _selectedIndex = FindAnnotation(point);
-
-                if (_selectedIndex < 0)
+                if (TrySelectAnnotation(point) == false)
                 {
-                    Refresh();
                     _surface.Cursor = Cursors.Arrow;
                     return false;
                 }
 
                 dragMode = SelectionDragMode.Move;
-                Refresh();
             }
 
             _selectionDragStart = point;
