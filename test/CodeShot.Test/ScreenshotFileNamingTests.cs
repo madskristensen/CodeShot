@@ -29,7 +29,7 @@ namespace CodeShot.Test
         [TestMethod]
         public void GetUniquePath_ReturnsRequestedNameWhenAvailable()
         {
-            var path = CodeShotToolWindowControl.GetUniquePath(_folder, "Widget");
+            var path = ScreenshotFileStore.GetUniquePath(_folder, "Widget");
 
             Assert.AreEqual(Path.Combine(_folder, "Widget.png"), path);
         }
@@ -41,7 +41,7 @@ namespace CodeShot.Test
             File.WriteAllText(Path.Combine(_folder, "Widget (2).png"), string.Empty);
             File.WriteAllText(Path.Combine(_folder, "Widget (3).png"), string.Empty);
 
-            var path = CodeShotToolWindowControl.GetUniquePath(_folder, "Widget");
+            var path = ScreenshotFileStore.GetUniquePath(_folder, "Widget");
 
             Assert.AreEqual(Path.Combine(_folder, "Widget (4).png"), path);
         }
@@ -49,7 +49,7 @@ namespace CodeShot.Test
         [TestMethod]
         public void GetUniquePath_DoesNotReserveTheReturnedName()
         {
-            var path = CodeShotToolWindowControl.GetUniquePath(_folder, "Widget");
+            var path = ScreenshotFileStore.GetUniquePath(_folder, "Widget");
 
             Assert.IsFalse(File.Exists(path));
         }

@@ -33,7 +33,6 @@ namespace CodeShot.ToolWindows
         // Below this padding the shadow has no room to fall and is dropped instead of being clipped.
         private const int ShadowMinimumPadding = 5;
         private const double CropEdgeSnapDistance = 12;
-        private const int EditHistoryLimit = 100;
         private const double ZoomStep = 10;
         private const int MaximumRenderDimension = 16384;
         private const long MaximumRenderPixelCount = 64_000_000;
@@ -41,8 +40,7 @@ namespace CodeShot.ToolWindows
         private readonly DispatcherTimer _refreshTimer;
         private readonly DispatcherTimer _menuCaptureCountdownTimer;
         private readonly HashSet<int> _highlightedLines = new HashSet<int>();
-        private readonly List<PreviewEditState> _editUndoHistory = new List<PreviewEditState>();
-        private readonly List<PreviewEditState> _editRedoHistory = new List<PreviewEditState>();
+        private readonly BoundedEditHistory<PreviewEditState> _editHistory = new BoundedEditHistory<PreviewEditState>(100);
         private readonly AnnotationController _annotationController;
         private string _selectedCode = string.Empty;
         private int _selectedLineCount;
@@ -544,7 +542,7 @@ namespace CodeShot.ToolWindows
                 snapshot.Freeze();
             }
 
-            using (var png = await Task.Run(() => EncodePng(snapshot)))
+            using (var png = await Task.Run(() => PngImageEncoder.Encode(snapshot)))
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 var data = new DataObject();
@@ -628,7 +626,7 @@ namespace CodeShot.ToolWindows
                     return;
                 }
 
-                path = SavePngAtomically(snapshot, path, overwrite);
+                path = ScreenshotFileStore.Save(snapshot, path, overwrite);
 
                 // The folder is remembered so that the next save starts where the last one landed,
                 // which is what the dialog would have done on its own before it could be skipped.
@@ -696,99 +694,6 @@ namespace CodeShot.ToolWindows
             path = dialog.FileName;
             overwrite = true;
             return true;
-        }
-
-        private string SavePngAtomically(BitmapSource snapshot, string path, bool overwrite)
-        {
-            var folder = Path.GetDirectoryName(path);
-            if (string.IsNullOrEmpty(folder))
-            {
-                throw new InvalidOperationException("The save path does not contain a folder.");
-            }
-
-            var fileName = Path.GetFileNameWithoutExtension(path);
-            var temporaryPath = Path.Combine(folder, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
-
-            try
-            {
-                using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                {
-                    EncodePng(snapshot, stream);
-                    stream.Flush(true);
-                }
-
-                if (overwrite)
-                {
-                    if (File.Exists(path))
-                    {
-                        File.Replace(temporaryPath, path, null);
-                    }
-                    else
-                    {
-                        File.Move(temporaryPath, path);
-                    }
-
-                    return path;
-                }
-
-                for (var attempt = 0; attempt < 10; attempt++)
-                {
-                    var candidate = GetUniquePath(folder, fileName);
-
-                    try
-                    {
-                        File.Move(temporaryPath, candidate);
-                        return candidate;
-                    }
-                    catch (IOException ex) when (File.Exists(candidate))
-                    {
-                        // Another process won the unique-name race. Recalculate and retry without overwriting it.
-                        _ = ex.LogAsync();
-                    }
-                }
-
-                throw new IOException("Could not reserve a unique screenshot file name.");
-            }
-            finally
-            {
-                DeleteTemporaryFile(temporaryPath);
-            }
-        }
-
-        // The dialog asks before it replaces a file, and skipping the dialog must not quietly lose
-        // the previous screenshot, so the name is numbered until it is free.
-        internal static string GetUniquePath(string folder, string fileName)
-        {
-            var candidate = Path.Combine(folder, fileName + ".png");
-
-            for (var attempt = 2; File.Exists(candidate) && attempt <= 1000; attempt++)
-            {
-                candidate = Path.Combine(folder, $"{fileName} ({attempt}).png");
-            }
-
-            // Giving up on the counter must not fall back to overwriting, so a name that cannot
-            // collide takes over once a thousand screenshots share the same template.
-            if (File.Exists(candidate))
-            {
-                candidate = Path.Combine(folder, $"{fileName} ({Guid.NewGuid():N}).png");
-            }
-
-            return candidate;
-        }
-
-        private static void DeleteTemporaryFile(string path)
-        {
-            try
-            {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = ex.LogAsync();
-            }
         }
 
         private void RememberSaveFolder(string? folder)
@@ -1138,23 +1043,6 @@ namespace CodeShot.ToolWindows
 
             LineNumbersText.Text = string.Empty;
             LineNumbersText.Visibility = Visibility.Collapsed;
-        }
-
-        private static MemoryStream EncodePng(BitmapSource snapshot)
-        {
-            var output = new MemoryStream();
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(snapshot));
-            encoder.Save(output);
-            output.Position = 0;
-            return output;
-        }
-
-        private static void EncodePng(BitmapSource snapshot, Stream output)
-        {
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(snapshot));
-            encoder.Save(output);
         }
 
         private RenderTargetBitmap? RenderSnapshot(double? requestedScale = null)
@@ -1591,10 +1479,10 @@ namespace CodeShot.ToolWindows
         internal bool HasAnnotations => _annotationController.HasAnnotations;
         internal bool CanUndoAnnotation => _annotationController.IsEditingText
             ? _annotationController.CanUndoText
-            : _editUndoHistory.Count > 0;
+            : _editHistory.CanUndo;
         internal bool CanRedoAnnotation => _annotationController.IsEditingText
             ? _annotationController.CanRedoText
-            : _editRedoHistory.Count > 0;
+            : _editHistory.CanRedo;
         internal AnnotationMode ActiveAnnotationMode => _annotationController.Mode;
 
         internal void SetAnnotationMode(AnnotationMode mode)
@@ -1628,7 +1516,10 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            RestoreEditHistory(_editUndoHistory, _editRedoHistory, "Undid edit.");
+            if (_editHistory.CanUndo && _editHistory.TryUndo(CaptureEditState(), out var state))
+            {
+                RestoreEditState(state, "Undid edit.");
+            }
         }
 
         internal void RedoAnnotation()
@@ -1641,7 +1532,10 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            RestoreEditHistory(_editRedoHistory, _editUndoHistory, "Redid edit.");
+            if (_editHistory.CanRedo && _editHistory.TryRedo(CaptureEditState(), out var state))
+            {
+                RestoreEditState(state, "Redid edit.");
+            }
         }
 
         private void OnAnnotationsChanging()
@@ -1659,31 +1553,17 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            PushEditHistory(_editUndoHistory, CaptureEditState());
-            _editRedoHistory.Clear();
+            _editHistory.Record(CaptureEditState());
             UpdateCommandStatus();
         }
 
         private PreviewEditState CaptureEditState()
             => new PreviewEditState(_capturedToolWindow, _annotationController.CaptureState());
 
-        private void RestoreEditHistory(
-            List<PreviewEditState> sourceHistory,
-            List<PreviewEditState> destinationHistory,
-            string status)
+        private void RestoreEditState(PreviewEditState state, string status)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-
-            if (sourceHistory.Count == 0)
-            {
-                return;
-            }
-
             CancelCrop();
-            PushEditHistory(destinationHistory, CaptureEditState());
-            var index = sourceHistory.Count - 1;
-            var state = sourceHistory[index];
-            sourceHistory.RemoveAt(index);
 
             if (state.Snapshot is ToolWindowSnapshot snapshot)
             {
@@ -1698,21 +1578,10 @@ namespace CodeShot.ToolWindows
             UpdateCommandStatus();
         }
 
-        private static void PushEditHistory(List<PreviewEditState> history, PreviewEditState state)
-        {
-            if (history.Count >= EditHistoryLimit)
-            {
-                history.RemoveAt(0);
-            }
-
-            history.Add(state);
-        }
-
         private void ClearEditHistory()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            _editUndoHistory.Clear();
-            _editRedoHistory.Clear();
+            _editHistory.Clear();
 
             if (IsLoaded)
             {
@@ -1892,55 +1761,17 @@ namespace CodeShot.ToolWindows
             var snapshot = selectionSpan.Snapshot;
             var firstLine = snapshot.GetLineNumberFromPosition(selectionSpan.Start);
             var lastLine = snapshot.GetLineNumberFromPosition(selectionSpan.End);
-            var indentation = int.MaxValue;
-
-            for (var lineNumber = firstLine; keepOriginalIndentation == false && lineNumber <= lastLine; lineNumber++)
-            {
-                var (line, start, end) = GetSelectedLinePart(snapshot, lineNumber, selectionSpan);
-
-                if (end <= start)
-                {
-                    continue;
-                }
-
-                // Scanning the snapshot directly avoids allocating two strings per line just to
-                // measure how far the first non-whitespace character sits from the line start.
-                var contentStart = start;
-
-                while (contentStart < end && char.IsWhiteSpace(snapshot[contentStart]))
-                {
-                    contentStart++;
-                }
-
-                if (contentStart == end)
-                {
-                    continue;
-                }
-
-                indentation = Math.Min(indentation, contentStart - line.Start.Position);
-            }
-
-            if (indentation == int.MaxValue)
-            {
-                indentation = 0;
-            }
-
-            var spans = new List<SnapshotSpan>();
+            var lines = new List<SelectedLinePart>(lastLine - firstLine + 1);
 
             for (var lineNumber = firstLine; lineNumber <= lastLine; lineNumber++)
             {
                 var (line, start, end) = GetSelectedLinePart(snapshot, lineNumber, selectionSpan);
-                var trimmedStart = Math.Min(Math.Max(start, line.Start.Position + indentation), end);
-                spans.Add(new SnapshotSpan(snapshot, Microsoft.VisualStudio.Text.Span.FromBounds(trimmedStart, end)));
+                lines.Add(new SelectedLinePart(line.Start.Position, start, end));
             }
 
-            // A selection that ends at the start of a line would otherwise render a trailing empty line.
-            if (spans.Count > 1 && spans[spans.Count - 1].IsEmpty)
-            {
-                spans.RemoveAt(spans.Count - 1);
-            }
-
-            return spans;
+            return SelectionTextProcessor.Normalize(lines, keepOriginalIndentation, position => snapshot[position])
+                .Select(segment => new SnapshotSpan(snapshot, segment.Start, segment.Length))
+                .ToList();
         }
 
         private static (ITextSnapshotLine line, int start, int end) GetSelectedLinePart(ITextSnapshot snapshot, int lineNumber, SnapshotSpan selectionSpan)
