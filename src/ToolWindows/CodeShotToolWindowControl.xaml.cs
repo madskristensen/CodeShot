@@ -9,13 +9,14 @@ using Microsoft.VisualStudio.TextManager.Interop;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -48,13 +49,18 @@ namespace CodeShot.ToolWindows
         private bool _isCropping;
         private Point? _cropStart;
         private System.Windows.Shapes.Rectangle? _cropSelection;
-        private IReadOnlyList<Inline>? _classifiedInlines;
+        private IReadOnlyList<IReadOnlyList<Inline>>? _classifiedLines;
+        private readonly List<FrameworkElement> _previewLineRows = new List<FrameworkElement>();
+        private readonly List<Paragraph> _previewParagraphs = new List<Paragraph>();
+        private readonly List<TextBlock> _previewTextBlocks = new List<TextBlock>();
+        private readonly List<TextBlock> _lineNumberTextBlocks = new List<TextBlock>();
         private WeakReference<IWpfTextView>? _previewTextView;
         private PreviewSpanIdentity[] _previewSpans = Array.Empty<PreviewSpanIdentity>();
         private IWpfTextView? _trackedTextView;
         private bool _isRefreshingSelection;
         private bool _isRefreshPending;
         private bool _isApplyingOptions;
+        private bool _isTextWidthCustomized;
         private bool _showLineNumbers = true;
         private bool _useRealLineNumbers;
         private int _firstSelectedLineNumber = 1;
@@ -64,6 +70,8 @@ namespace CodeShot.ToolWindows
         private DocumentTokens _documentTokens = DocumentTokens.Empty;
         private Brush _highlightBrush = Brushes.Transparent;
         private Brush _dimBrush = Brushes.Transparent;
+        private Brush _previewForeground = Brushes.Gray;
+        private Brush _lineNumberForeground = Brushes.Gray;
         private string _fontFamilyName = FontCatalog.FallbackFamily;
         private double _fontSize = FontCatalog.FallbackSize;
         private double _lineHeightMultiplier = 1.45d;
@@ -324,6 +332,7 @@ namespace CodeShot.ToolWindows
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             ExitCapturedImageMode();
+            ResetTextWidth();
             RunSafe(
                 RefreshFromSelectionAsync,
                 "Could not refresh from the current selection.");
@@ -459,7 +468,7 @@ namespace CodeShot.ToolWindows
             _capturedToolWindow = snapshot;
             _selectedCode = string.Empty;
             _selectedLineCount = 0;
-            _classifiedInlines = null;
+            _classifiedLines = null;
             _previewTextView = null;
             _previewSpans = Array.Empty<PreviewSpanIdentity>();
             _highlightedLines.Clear();
@@ -467,10 +476,9 @@ namespace CodeShot.ToolWindows
             _documentTokens = DocumentTokens.Empty;
 
             HideEmptyState();
-            SetPreviewPlainText(string.Empty);
-            LineNumbersText.Text = string.Empty;
-            LineNumbersText.Visibility = Visibility.Collapsed;
-            PreviewText.Visibility = Visibility.Collapsed;
+            ClearPreviewLines();
+            PreviewLinesPanel.Visibility = Visibility.Collapsed;
+            TextWidthThumb.Visibility = Visibility.Collapsed;
             HighlightLayer.Visibility = Visibility.Collapsed;
             DimLayer.Visibility = Visibility.Collapsed;
             CapturedImage.Source = snapshot.Image;
@@ -520,9 +528,10 @@ namespace CodeShot.ToolWindows
             CodeArea.ClearValue(WidthProperty);
             CodeArea.ClearValue(HeightProperty);
             CodeArea.Margin = new Thickness(16, 0, 16, 16);
-            SnapshotFrame.MinWidth = 320;
+            SnapshotFrame.MinWidth = TextCaptureWidth.Minimum;
             SnapshotFrame.BorderThickness = new Thickness(1);
-            PreviewText.Visibility = Visibility.Visible;
+            PreviewLinesPanel.Visibility = Visibility.Visible;
+            TextWidthThumb.Visibility = Visibility.Visible;
             HighlightLayer.Visibility = Visibility.Visible;
             DimLayer.Visibility = Visibility.Visible;
             TitleBarBorder.Visibility = _showTitleBar ? Visibility.Visible : Visibility.Collapsed;
@@ -810,7 +819,7 @@ namespace CodeShot.ToolWindows
             _selectedCode = string.Join(Environment.NewLine, selectedSpans.Select(span => span.GetText()));
             _selectedLineCount = selectedSpans.Count;
             _firstSelectedLineNumber = selectedSpans[0].Snapshot.GetLineNumberFromPosition(selectedSpans[0].Start) + 1;
-            _classifiedInlines = BuildClassifiedInlines(textView, selectedSpans);
+            _classifiedLines = BuildClassifiedLines(textView, selectedSpans);
             _previewTextView = new WeakReference<IWpfTextView>(textView);
             _previewSpans = CapturePreviewSpanIdentities(selectedSpans);
 
@@ -818,6 +827,7 @@ namespace CodeShot.ToolWindows
             // point at the same code once a new selection has been read.
             if (selectionChanged)
             {
+                ResetTextWidth();
                 _highlightedLines.Clear();
                 ClearEditHistory();
                 _annotationController.Reset();
@@ -825,7 +835,7 @@ namespace CodeShot.ToolWindows
 
             _documentTokens = CaptureDocumentTokens(textView);
             TitleText.Text = _documentTokens.ExpandOrDefault(_windowTitleTemplate, "CodeShot");
-            StatusText.Text = _classifiedInlines is null
+            StatusText.Text = _classifiedLines is null
                 ? "Preview updated from current selection (plain text fallback)."
                 : "Preview updated from current selection.";
 
@@ -875,7 +885,7 @@ namespace CodeShot.ToolWindows
             _selectedCode = string.Empty;
             _selectedLineCount = 0;
             _firstSelectedLineNumber = 1;
-            _classifiedInlines = null;
+            _classifiedLines = null;
             _previewTextView = null;
             _previewSpans = Array.Empty<PreviewSpanIdentity>();
             _highlightedLines.Clear();
@@ -903,6 +913,7 @@ namespace CodeShot.ToolWindows
                 : $"After selecting code, press {shortcut} to copy it immediately.";
             EmptyState.Visibility = Visibility.Visible;
             CaptureSurface.Visibility = Visibility.Collapsed;
+            TextWidthThumb.Visibility = Visibility.Collapsed;
             StatusText.Text = description;
         }
 
@@ -910,6 +921,7 @@ namespace CodeShot.ToolWindows
         {
             EmptyState.Visibility = Visibility.Collapsed;
             CaptureSurface.Visibility = Visibility.Visible;
+            TextWidthThumb.Visibility = _capturedToolWindow is null ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private static bool HasOpenDocument()
@@ -1010,39 +1022,125 @@ namespace CodeShot.ToolWindows
 
         private void UpdatePreviewText()
         {
-            if (PreviewText is null || LineNumbersText is null)
+            if (PreviewLinesPanel is null)
             {
                 return;
             }
+
+            ClearPreviewLines();
 
             if (_selectedLineCount == 0)
             {
-                SetPreviewPlainText(string.Empty);
-                LineNumbersText.Text = string.Empty;
-                ApplyFontSettings();
                 return;
             }
 
-            if (_classifiedInlines is not null)
+            var plainTextLines = NormalizeLineEndings(_selectedCode).Split('\n');
+            var firstLineNumber = _useRealLineNumbers ? _firstSelectedLineNumber : 1;
+            var lineNumberWidth = (firstLineNumber + _selectedLineCount - 1).ToString().Length;
+
+            for (var index = 0; index < _selectedLineCount; index++)
             {
-                SetPreviewInlines(_classifiedInlines);
-            }
-            else
-            {
-                SetPreviewPlainText(_selectedCode);
+                var lineText = index < plainTextLines.Length ? plainTextLines[index] : string.Empty;
+                var inlines = _classifiedLines is null
+                    ? CreatePlainTextInlines(lineText)
+                    : _classifiedLines[index];
+                AddPreviewLine(inlines, lineText, firstLineNumber + index, lineNumberWidth);
             }
 
             ApplyFontSettings();
+            ApplyPreviewTextColors();
+        }
 
-            if (_showLineNumbers)
+        private void AddPreviewLine(IReadOnlyList<Inline> inlines, string lineText, int lineNumber, int lineNumberWidth)
+        {
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(_showLineNumbers ? 16 : 0) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var lineNumberText = new TextBlock
             {
-                LineNumbersText.Text = BuildLineNumbers(_selectedLineCount, _useRealLineNumbers ? _firstSelectedLineNumber : 1);
-                LineNumbersText.Visibility = Visibility.Visible;
-                return;
+                Text = _showLineNumbers ? lineNumber.ToString().PadLeft(lineNumberWidth) : string.Empty,
+                TextAlignment = TextAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Visibility = _showLineNumbers ? Visibility.Visible : Visibility.Collapsed
+            };
+            FrameworkElement previewText;
+
+            if (_isTextWidthCustomized)
+            {
+                var paragraph = new Paragraph
+                {
+                    Margin = new Thickness(0),
+                    Tag = TextWrapIndent.Split(lineText).Whitespace + "  "
+                };
+                paragraph.Inlines.AddRange(inlines);
+                var document = new FlowDocument(paragraph)
+                {
+                    ColumnGap = 0,
+                    PagePadding = new Thickness(0)
+                };
+                previewText = new RichTextBox(document)
+                {
+                    Background = Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    Focusable = false,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    IsDocumentEnabled = false,
+                    IsReadOnly = true,
+                    Padding = new Thickness(0),
+                    VerticalAlignment = VerticalAlignment.Top,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Disabled
+                };
+                _previewParagraphs.Add(paragraph);
+            }
+            else
+            {
+                var textBlock = new TextBlock
+                {
+                    TextWrapping = TextWrapping.NoWrap,
+                    VerticalAlignment = VerticalAlignment.Top
+                };
+                textBlock.Inlines.AddRange(inlines);
+                previewText = textBlock;
+                _previewTextBlocks.Add(textBlock);
             }
 
-            LineNumbersText.Text = string.Empty;
-            LineNumbersText.Visibility = Visibility.Collapsed;
+            Grid.SetColumn(lineNumberText, 0);
+            Grid.SetColumn(previewText, 2);
+            row.Children.Add(lineNumberText);
+            row.Children.Add(previewText);
+            PreviewLinesPanel.Children.Add(row);
+            _previewLineRows.Add(row);
+            _lineNumberTextBlocks.Add(lineNumberText);
+        }
+
+        private static IReadOnlyList<Inline> CreatePlainTextInlines(string text)
+        {
+            var inlines = new List<Inline>();
+            AppendText(inlines, text, null, null);
+            return inlines;
+        }
+
+        private void ClearPreviewLines()
+        {
+            // Classified inlines are reused when display options change, so detach them from their
+            // current TextBlocks before constructing replacement rows.
+            foreach (var paragraph in _previewParagraphs)
+            {
+                paragraph.Inlines.Clear();
+            }
+
+            foreach (var textBlock in _previewTextBlocks)
+            {
+                textBlock.Inlines.Clear();
+            }
+
+            PreviewLinesPanel.Children.Clear();
+            _previewLineRows.Clear();
+            _previewParagraphs.Clear();
+            _previewTextBlocks.Clear();
+            _lineNumberTextBlocks.Clear();
         }
 
         private RenderTargetBitmap? RenderSnapshot(double? requestedScale = null)
@@ -1116,25 +1214,6 @@ namespace CodeShot.ToolWindows
         private string GetRenderFailureMessage(string fallback)
             => string.IsNullOrEmpty(_lastRenderFailure) ? fallback : _lastRenderFailure;
 
-        private static string BuildLineNumbers(int lineCount, int firstNumber)
-        {
-            var lastNumber = firstNumber + lineCount - 1;
-            var width = lastNumber.ToString().Length;
-            var builder = new StringBuilder(lineCount * (width + Environment.NewLine.Length));
-
-            for (var number = firstNumber; number <= lastNumber; number++)
-            {
-                if (number > firstNumber)
-                {
-                    builder.Append(Environment.NewLine);
-                }
-
-                builder.Append(number.ToString().PadLeft(width));
-            }
-
-            return builder.ToString();
-        }
-
         private static string NormalizeLineEndings(string value)
             => value.Replace("\r\n", "\n").Replace('\r', '\n');
 
@@ -1197,8 +1276,9 @@ namespace CodeShot.ToolWindows
             };
             ApplyShadow();
 
-            PreviewText.Foreground = foreground ?? new SolidColorBrush(editorForeground);
-            LineNumbersText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.55));
+            _previewForeground = foreground ?? new SolidColorBrush(editorForeground);
+            _lineNumberForeground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.55));
+            ApplyPreviewTextColors();
             TitleText.Foreground = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.15));
 
             var glyphBrush = new SolidColorBrush(Blend(editorForeground, editorBackground, 0.35));
@@ -1241,6 +1321,48 @@ namespace CodeShot.ToolWindows
             var scale = e.NewValue / 100;
             ZoomTransform.ScaleX = scale;
             ZoomTransform.ScaleY = scale;
+        }
+
+        private void OnTextWidthDragStarted(object sender, DragStartedEventArgs e)
+        {
+            if (_selectedLineCount == 0 || _capturedToolWindow is not null)
+            {
+                return;
+            }
+
+            var currentWidth = TextCaptureWidth.Clamp(SnapshotFrame.ActualWidth);
+            SnapshotFrame.Width = currentWidth;
+            _isTextWidthCustomized = true;
+            UpdatePreviewText();
+        }
+
+        private void OnTextWidthDragDelta(object sender, DragDeltaEventArgs e)
+        {
+            if (_selectedLineCount == 0 || _capturedToolWindow is not null)
+            {
+                return;
+            }
+
+            SnapshotFrame.Width = TextCaptureWidth.Clamp(SnapshotFrame.Width + e.HorizontalChange);
+            StatusText.Text = $"Text screenshot width: {Math.Ceiling(SnapshotFrame.Width):0} px. Double-click the edge to reset.";
+        }
+
+        private void OnTextWidthThumbDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            ResetTextWidth();
+            UpdatePreviewText();
+            StatusText.Text = "Text screenshot width reset to fit the selection.";
+            e.Handled = true;
+        }
+
+        private void ResetTextWidth()
+        {
+            _isTextWidthCustomized = false;
+
+            if (SnapshotFrame is not null)
+            {
+                SnapshotFrame.ClearValue(WidthProperty);
+            }
         }
 
         private void OnZoomOutClick(object sender, RoutedEventArgs e)
@@ -1454,7 +1576,7 @@ namespace CodeShot.ToolWindows
         // Clicking a line is the quickest way to point at it when no drawing tool is active.
         private void ToggleLineHighlight(MouseButtonEventArgs e)
         {
-            var lineIndex = GetLineIndexAt(e.GetPosition(PreviewText).Y);
+            var lineIndex = GetLineIndexAt(e.GetPosition(CodeArea).Y);
 
             if (lineIndex < 0)
             {
@@ -1589,24 +1711,25 @@ namespace CodeShot.ToolWindows
             }
         }
 
-        // The preview is one text block of uniform monospaced lines, so the line height follows
-        // from its rendered height and does not need to be measured per line.
-        private double GetLineHeight()
-            => _selectedLineCount <= 0 || PreviewText.ActualHeight <= 0
-                ? 0
-                : PreviewText.ActualHeight / _selectedLineCount;
-
         private int GetLineIndexAt(double y)
         {
-            var lineHeight = GetLineHeight();
-
-            if (lineHeight <= 0 || y < 0)
+            if (y < 0)
             {
                 return -1;
             }
 
-            var index = (int)(y / lineHeight);
-            return index >= 0 && index < _selectedLineCount ? index : -1;
+            for (var index = 0; index < _previewLineRows.Count; index++)
+            {
+                var row = _previewLineRows[index];
+                var top = row.TranslatePoint(new Point(), CodeArea).Y;
+
+                if (y >= top && y < top + row.ActualHeight)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
         }
 
         private void UpdateHighlightLayers()
@@ -1619,10 +1742,9 @@ namespace CodeShot.ToolWindows
             HighlightLayer.Children.Clear();
             DimLayer.Children.Clear();
 
-            var lineHeight = GetLineHeight();
             var width = CodeArea.ActualWidth;
 
-            if (lineHeight <= 0 || width <= 0 || _highlightedLines.Count == 0)
+            if (width <= 0 || _highlightedLines.Count == 0)
             {
                 return;
             }
@@ -1637,12 +1759,14 @@ namespace CodeShot.ToolWindows
 
                 foreach (var index in _highlightedLines)
                 {
-                    if (index < 0 || index >= _selectedLineCount)
+                    if (index < 0 || index >= _previewLineRows.Count)
                     {
                         continue;
                     }
 
-                    var bounds = new Rect(0, index * lineHeight, width, lineHeight);
+                    var row = _previewLineRows[index];
+                    var top = row.TranslatePoint(new Point(), CodeArea).Y;
+                    var bounds = new Rect(0, top, width, row.ActualHeight);
                     AddGeometryRectangle(highlightContext, bounds);
                     AddGeometryRectangle(dimContext, bounds);
                 }
@@ -1782,7 +1906,7 @@ namespace CodeShot.ToolWindows
             return (line, start, end);
         }
 
-        private IReadOnlyList<Inline>? BuildClassifiedInlines(IWpfTextView textView, IReadOnlyList<SnapshotSpan> selectedSpans)
+        private IReadOnlyList<IReadOnlyList<Inline>>? BuildClassifiedLines(IWpfTextView textView, IReadOnlyList<SnapshotSpan> selectedSpans)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -1800,7 +1924,7 @@ namespace CodeShot.ToolWindows
 
             ApplyEditorColors(defaultForeground, defaultBackground);
 
-            var inlines = new List<Inline>();
+            var lines = new List<IReadOnlyList<Inline>>(selectedSpans.Count);
 
             // Classifying each line separately means one service call per line, so the whole
             // selection is classified once and the ordered result is sliced per line.
@@ -1808,16 +1932,14 @@ namespace CodeShot.ToolWindows
             var classificationSpans = classifier.GetClassificationSpans(enclosingSpan);
             var classificationIndex = 0;
 
-            for (var i = 0; i < selectedSpans.Count; i++)
+            for (var index = 0; index < selectedSpans.Count; index++)
             {
-                AppendClassifiedSpanRuns(inlines, classificationSpans, ref classificationIndex, formatMap, selectedSpans[i], defaultForeground, defaultBackground);
-                if (i < selectedSpans.Count - 1)
-                {
-                    inlines.Add(new LineBreak());
-                }
+                var inlines = new List<Inline>();
+                AppendClassifiedSpanRuns(inlines, classificationSpans, ref classificationIndex, formatMap, selectedSpans[index], defaultForeground, defaultBackground);
+                lines.Add(inlines);
             }
 
-            return inlines;
+            return lines;
         }
 
         private void ApplyEditorColors(Brush? foreground, Brush? background)
@@ -1827,7 +1949,7 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            ApplySnapshotColors(foreground ?? PreviewText.Foreground, background ?? SnapshotFrame.Background);
+            ApplySnapshotColors(foreground ?? _previewForeground, background ?? SnapshotFrame.Background);
         }
 
         private static void AppendClassifiedSpanRuns(
@@ -1979,19 +2101,6 @@ namespace CodeShot.ToolWindows
             RunSafe(
                 RefreshFromSelectionAsync,
                 "Could not refresh from the current selection.");
-        }
-
-        private void SetPreviewPlainText(string text)
-        {
-            var inlines = new List<Inline>();
-            AppendText(inlines, text, null, null);
-            SetPreviewInlines(inlines);
-        }
-
-        private void SetPreviewInlines(IReadOnlyList<Inline> inlines)
-        {
-            PreviewText.Inlines.Clear();
-            PreviewText.Inlines.AddRange(inlines);
         }
 
         private void OnOptionsSaved(General options)
@@ -2177,25 +2286,62 @@ namespace CodeShot.ToolWindows
 
         private void ApplyFontSettings()
         {
-            if (PreviewText is null || LineNumbersText is null)
-            {
-                return;
-            }
-
             var fontFamily = new FontFamily(_fontFamilyName);
 
             // The default line spacing of a monospaced font is tight enough that a screenshot reads
             // as a wall of text, so the lines are opened up the way a code sample in an article is.
             var lineHeight = Math.Round(_fontSize * _lineHeightMultiplier);
 
-            PreviewText.FontFamily = fontFamily;
-            PreviewText.FontSize = _fontSize;
-            PreviewText.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
-            PreviewText.LineHeight = lineHeight;
-            LineNumbersText.FontFamily = fontFamily;
-            LineNumbersText.FontSize = _fontSize;
-            LineNumbersText.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
-            LineNumbersText.LineHeight = lineHeight;
+            foreach (var textBlock in _previewTextBlocks.Concat(_lineNumberTextBlocks))
+            {
+                textBlock.FontFamily = fontFamily;
+                textBlock.FontSize = _fontSize;
+                textBlock.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+                textBlock.LineHeight = lineHeight;
+                textBlock.MinHeight = lineHeight;
+            }
+
+            foreach (var paragraph in _previewParagraphs)
+            {
+                var continuationIndent = MeasureTextWidth(paragraph.Tag as string ?? "  ", fontFamily);
+                paragraph.FontFamily = fontFamily;
+                paragraph.FontSize = _fontSize;
+                paragraph.LineHeight = lineHeight;
+                paragraph.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+                paragraph.Margin = new Thickness(continuationIndent, 0, 0, 0);
+                paragraph.TextIndent = -continuationIndent;
+            }
+        }
+
+        private double MeasureTextWidth(string text, FontFamily fontFamily)
+        {
+            var formattedText = new FormattedText(
+                text,
+                CultureInfo.CurrentUICulture,
+                FlowDirection.LeftToRight,
+                new Typeface(fontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+                _fontSize,
+                Brushes.Black,
+                VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            return formattedText.WidthIncludingTrailingWhitespace;
+        }
+
+        private void ApplyPreviewTextColors()
+        {
+            foreach (var paragraph in _previewParagraphs)
+            {
+                paragraph.Foreground = _previewForeground;
+            }
+
+            foreach (var textBlock in _previewTextBlocks)
+            {
+                textBlock.Foreground = _previewForeground;
+            }
+
+            foreach (var textBlock in _lineNumberTextBlocks)
+            {
+                textBlock.Foreground = _lineNumberForeground;
+            }
         }
 
         // Faults are reported to the activity log instead of being left on an unobserved task.

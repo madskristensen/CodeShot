@@ -78,6 +78,31 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="TextWidthThumbStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Border
+                                x:Name="HoverIndicator"
+                                Width="2"
+                                HorizontalAlignment="Center"
+                                Background="{DynamicResource {x:Static shell:VsBrushes.ToolWindowTextKey}}"
+                                Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HoverIndicator" Property="Opacity" Value="0.35" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="HoverIndicator" Property="Opacity" Value="0.65" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid x:Name="RootGrid">
@@ -94,12 +119,12 @@
             Padding="10"
             PreviewMouseWheel="OnPreviewMouseWheel">
             <!-- Zoom is applied outside the capture surface so annotations use image coordinates and
-                 exported images remain independent of the on-screen preview scale. A vertical stack
+                 exported images remain independent of the on-screen preview scale. The wrapper
                  measures the capture surface at its content height instead of stretching it to the viewport. -->
-            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top">
-                <StackPanel.LayoutTransform>
+            <Grid HorizontalAlignment="Left" VerticalAlignment="Top">
+                <Grid.LayoutTransform>
                     <ScaleTransform x:Name="ZoomTransform" ScaleX="1" ScaleY="1" />
-                </StackPanel.LayoutTransform>
+                </Grid.LayoutTransform>
 
                 <!-- The capture surface is the exported image, so it must never be clipped to the viewport. -->
                 <!-- The text options are chosen for an exported image rather than for a screen. Ideal
@@ -186,22 +211,11 @@
                                         Stretch="None"
                                         Visibility="Collapsed" />
 
-                                    <TextBlock
+                                    <StackPanel
+                                        x:Name="PreviewLinesPanel"
                                         Grid.Column="0"
+                                        Grid.ColumnSpan="3"
                                         Panel.ZIndex="1"
-                                        x:Name="LineNumbersText"
-                                        FontFamily="Consolas"
-                                        FontSize="13"
-                                        TextAlignment="Right"
-                                        VerticalAlignment="Top" />
-
-                                    <TextBlock
-                                        Grid.Column="2"
-                                        Panel.ZIndex="1"
-                                        x:Name="PreviewText"
-                                        FontFamily="Consolas"
-                                        FontSize="13"
-                                        TextWrapping="NoWrap"
                                         VerticalAlignment="Top" />
 
                                     <Canvas
@@ -232,7 +246,22 @@
                         </Border>
                     </Border>
                 </Border>
-            </StackPanel>
+
+                <Thumb
+                    x:Name="TextWidthThumb"
+                    Panel.ZIndex="10"
+                    Width="8"
+                    Margin="0,0,-4,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Stretch"
+                    Cursor="SizeWE"
+                    DragDelta="OnTextWidthDragDelta"
+                    DragStarted="OnTextWidthDragStarted"
+                    Focusable="False"
+                    MouseDoubleClick="OnTextWidthThumbDoubleClick"
+                    Style="{StaticResource TextWidthThumbStyle}"
+                    ToolTip="Drag the right border to resize. Double-click to reset." />
+            </Grid>
         </ScrollViewer>
         <Border
             x:Name="EmptyState"
