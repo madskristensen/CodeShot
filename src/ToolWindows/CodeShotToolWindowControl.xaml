@@ -353,25 +353,17 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock
-                    x:Name="StatusText"
-                    Margin="8,4"
-                    VerticalAlignment="Center"
-                    TextTrimming="CharacterEllipsis"
-                    Foreground="{DynamicResource {x:Static shell:VsBrushes.GrayTextKey}}"
-                    Text="Select code in the editor to update the preview." />
+                <TextBlock x:Name="StatusText" Visibility="Collapsed" />
 
                 <TextBlock
                     x:Name="DimensionsText"
-                    Grid.Column="1"
                     Margin="8,4"
                     VerticalAlignment="Center"
                     Foreground="{DynamicResource {x:Static shell:VsBrushes.GrayTextKey}}" />
 
-                <StackPanel Grid.Column="2" Margin="2,1,6,1" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Margin="2,1,6,1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button
                         Width="14"
                         Height="18"

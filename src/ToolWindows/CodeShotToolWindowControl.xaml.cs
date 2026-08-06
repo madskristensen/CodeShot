@@ -1231,9 +1231,9 @@ namespace CodeShot.ToolWindows
                 return;
             }
 
-            var width = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualWidth * _exportScale));
-            var height = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualHeight * _exportScale));
-            DimensionsText.Text = $"Screenshot: {width} x {height} px";
+            var width = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualWidth));
+            var height = Math.Max(1, (int)Math.Ceiling(CaptureSurface.ActualHeight));
+            DimensionsText.Text = $"{width} x {height} px";
         }
 
         private void OnZoomChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
