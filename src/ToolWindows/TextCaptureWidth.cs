@@ -10,5 +10,8 @@ namespace CodeShot.ToolWindows
             => double.IsNaN(value) || double.IsInfinity(value)
                 ? Minimum
                 : Math.Max(Minimum, value);
+
+        internal static double AddDelta(double? pendingWidth, double currentWidth, double delta)
+            => Clamp((pendingWidth ?? currentWidth) + delta);
     }
 }

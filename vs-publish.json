@@ -26,6 +26,10 @@
     {
       "pathOnDisk": "art/wordwrap.gif",
       "targetPath": "art/wordwrap.gif"
+    },
+    {
+      "pathOnDisk": "art/screenshot.gif",
+      "targetPath": "art/screenshot.gif"
     }
   ],
   "overview": "README.md",

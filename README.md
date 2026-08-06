@@ -18,7 +18,7 @@
 
 *Turn a selection into a presentation-ready image while staying in your editor.*
 
-<!-- Demo animation instructions: Create art/codeshot-demo.gif at about 960 pixels wide and under 10 MB. Record a 10-15 second loop that selects code, invokes CodeShot, adds one highlight and one arrow, redacts a value, and copies the result. Crop tightly around Visual Studio, pause briefly on the final image, remove personal data, and add the asset to vs-publish.json before embedding it here. -->
+![CodeShot preview with syntax-colored code ready to share](art/screenshot.gif)
 
 ## Why CodeShot
 
@@ -74,7 +74,7 @@ Keep the entire surface unobscured during capture. Top-level menus include only 
 
 The toolbar controls font, size, line numbers, title bar and indentation. Drag the right edge of a text screenshot to resize it; narrower widths wrap long lines, and double-clicking the edge restores the selection's natural width. 
 
-![Word wrap](art/wordwrap.gif)
+![Word wrap](art/wor)
 
 The status bar shows the exported screenshot dimensions. Use its slider or **Ctrl+mouse wheel** to zoom the preview without changing the exported image. **Tools > Options > CodeShot > General** contains appearance and export settings, all remembered between sessions.
 

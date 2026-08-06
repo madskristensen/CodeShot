@@ -25,5 +25,23 @@ namespace CodeShot.Test
         {
             Assert.AreEqual(value, TextCaptureWidth.Clamp(value));
         }
+
+        [TestMethod]
+        public void AddDelta_AccumulatesFromPendingWidth()
+        {
+            Assert.AreEqual(625, TextCaptureWidth.AddDelta(600, 500, 25));
+        }
+
+        [TestMethod]
+        public void AddDelta_UsesCurrentWidthWithoutPendingUpdate()
+        {
+            Assert.AreEqual(525, TextCaptureWidth.AddDelta(null, 500, 25));
+        }
+
+        [TestMethod]
+        public void AddDelta_ClampsAccumulatedWidth()
+        {
+            Assert.AreEqual(TextCaptureWidth.Minimum, TextCaptureWidth.AddDelta(330, 500, -25));
+        }
     }
 }

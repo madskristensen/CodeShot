@@ -211,12 +211,35 @@
                                         Stretch="None"
                                         Visibility="Collapsed" />
 
-                                    <StackPanel
-                                        x:Name="PreviewLinesPanel"
+                                    <TextBlock
+                                        x:Name="LineNumbersText"
+                                        Grid.Column="0"
+                                        Panel.ZIndex="1"
+                                        TextAlignment="Right"
+                                        VerticalAlignment="Top" />
+
+                                    <TextBlock
+                                        x:Name="PreviewText"
+                                        Grid.Column="2"
+                                        Panel.ZIndex="1"
+                                        TextWrapping="NoWrap"
+                                        VerticalAlignment="Top" />
+
+                                    <RichTextBox
+                                        x:Name="WrappedPreview"
                                         Grid.Column="0"
                                         Grid.ColumnSpan="3"
                                         Panel.ZIndex="1"
-                                        VerticalAlignment="Top" />
+                                        Padding="0"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Focusable="False"
+                                        HorizontalScrollBarVisibility="Disabled"
+                                        IsDocumentEnabled="False"
+                                        IsReadOnly="True"
+                                        VerticalAlignment="Top"
+                                        VerticalScrollBarVisibility="Disabled"
+                                        Visibility="Collapsed" />
 
                                     <Canvas
                                         x:Name="DimLayer"
@@ -255,6 +278,7 @@
                     HorizontalAlignment="Right"
                     VerticalAlignment="Stretch"
                     Cursor="SizeWE"
+                    DragCompleted="OnTextWidthDragCompleted"
                     DragDelta="OnTextWidthDragDelta"
                     DragStarted="OnTextWidthDragStarted"
                     Focusable="False"
