@@ -72,7 +72,11 @@ Keep the entire surface unobscured during capture. Top-level menus include only 
 
 ## Customize and export
 
-The toolbar controls font, size, line numbers, title bar and indentation. Drag the right edge of a text screenshot to resize it; narrower widths wrap long lines, and double-clicking the edge restores the selection's natural width. The status bar shows the exported screenshot dimensions. Use its slider or **Ctrl+mouse wheel** to zoom the preview without changing the exported image. **Tools > Options > CodeShot > General** contains appearance and export settings, all remembered between sessions.
+The toolbar controls font, size, line numbers, title bar and indentation. Drag the right edge of a text screenshot to resize it; narrower widths wrap long lines, and double-clicking the edge restores the selection's natural width. 
+
+![Word wrap](art/wordwrap.gif)
+
+The status bar shows the exported screenshot dimensions. Use its slider or **Ctrl+mouse wheel** to zoom the preview without changing the exported image. **Tools > Options > CodeShot > General** contains appearance and export settings, all remembered between sessions.
 
 ![CodeShot appearance and export options in Visual Studio](art/options.png)
 

@@ -22,6 +22,10 @@
     {
       "pathOnDisk": "art/tool-window-context-menu.png",
       "targetPath": "art/tool-window-context-menu.png"
+    },
+    {
+      "pathOnDisk": "art/wordwrap.gif",
+      "targetPath": "art/wordwrap.gif"
     }
   ],
   "overview": "README.md",
