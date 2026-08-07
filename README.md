@@ -57,7 +57,6 @@ Right-click a visible tool window's title bar and choose **Take Screenshot**. Co
 
 Tool-window capture uses the pixels currently visible on screen, including Win32 and WebView content. Keep the window unobscured while capturing it. Other tabs in the same docking group are excluded, and pixels outside the rounded frame remain transparent. Cropping and its undo history are available for tool-window captures; text captures use the editor selection as their natural boundary.
 
-<!-- Screenshot instructions: Update art/tool-window-context-menu.png with a tightly cropped, current-theme capture of a recognizable Visual Studio tool window. Keep the title bar and Take Screenshot context-menu command visible, remove unrelated menu items where practical, and avoid repository names or machine-specific content. -->
 ![Take Screenshot command on a Visual Studio tool window](art/tool-window-context-menu.png)
 
 *Capture Error List, Test Explorer, Solution Explorer and other visible tool windows.*
@@ -72,9 +71,9 @@ Keep the entire surface unobscured during capture. Top-level menus include only 
 
 ## Customize and export
 
-The toolbar controls font, size, line numbers, title bar and indentation. Drag the right edge of a text screenshot to resize it; narrower widths wrap long lines, and double-clicking the edge restores the selection's natural width. 
+The toolbar controls font, size, line numbers, title bar and indentation. Drag the right edge of a text screenshot to resize it; narrower widths wrap long lines, and double-clicking the edge restores the selection's natural width.
 
-![Word wrap](art/wor)
+![Word wrap](art/wordwrap.gif)
 
 The status bar shows the exported screenshot dimensions. Use its slider or **Ctrl+mouse wheel** to zoom the preview without changing the exported image. **Tools > Options > CodeShot > General** contains appearance and export settings, all remembered between sessions.
 
